@@ -23,11 +23,22 @@ class Allocation:
         - dtype (torch.dtype): Desired tensor dtype
         """
         sqrt2_inv = 1.0 / torch.sqrt(torch.tensor(2.0, dtype=dtype, device=device))
+
+        # A = torch.tensor(
+        #     [
+        #         [1.0, 1.0, 1.0, 1.0],
+        #         [arm_length * sqrt2_inv, -arm_length * sqrt2_inv, -arm_length * sqrt2_inv, arm_length * sqrt2_inv],
+        #         [-arm_length * sqrt2_inv, -arm_length * sqrt2_inv, arm_length * sqrt2_inv, arm_length * sqrt2_inv],
+        #         [drag_coeff, -drag_coeff, drag_coeff, -drag_coeff],
+        #     ],
+        #     dtype=dtype,
+        #     device=device,
+        # )
         A = torch.tensor(
             [
                 [1.0, 1.0, 1.0, 1.0],
-                [arm_length * sqrt2_inv, -arm_length * sqrt2_inv, -arm_length * sqrt2_inv, arm_length * sqrt2_inv],
-                [-arm_length * sqrt2_inv, -arm_length * sqrt2_inv, arm_length * sqrt2_inv, arm_length * sqrt2_inv],
+                [0.14825, -0.122, -0.122, 0.14825],
+                [-0.10474, -0.1343, 0.1343, 0.10474],
                 [drag_coeff, -drag_coeff, drag_coeff, -drag_coeff],
             ],
             dtype=dtype,

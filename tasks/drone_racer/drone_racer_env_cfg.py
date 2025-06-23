@@ -23,7 +23,7 @@ from isaaclab.utils import configclass
 from . import mdp
 from .track_generator import generate_track
 
-from assets.five_in_drone import FIVE_IN_DRONE  # isort:skip
+from assets.a2r_drone import A2R_DRONE  # isort:skip
 
 
 @configclass
@@ -37,30 +37,40 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
 
     # track
     track: RigidObjectCollectionCfg = generate_track(
+        # track_config={
+        #     "1": {"pos": (0.0, 0.0, 1.5), "yaw": 0.0},
+        #     "2": {"pos": (10.0, 5.0, 1.5), "yaw": 0.0},
+        #     "3": {"pos": (10.0, -5.0, 1.5), "yaw": (5 / 4) * torch.pi},
+        #     "4": {"pos": (-5.0, -5.0, 4.0), "yaw": torch.pi},
+        #     "5": {"pos": (-5.0, -5.0, 1.5), "yaw": 0.0},
+        #     "6": {"pos": (5.0, 0.0, 1.5), "yaw": (1 / 2) * torch.pi},
+        #     "7": {"pos": (0.0, 5.0, 1.5), "yaw": torch.pi},
+        # }
         track_config={
-            "1": {"pos": (0.0, 0.0, 1.0), "yaw": 0.0},
-            "2": {"pos": (10.0, 5.0, 0.0), "yaw": 0.0},
-            "3": {"pos": (10.0, -5.0, 0.0), "yaw": (5 / 4) * torch.pi},
-            "4": {"pos": (-5.0, -5.0, 2.5), "yaw": torch.pi},
-            "5": {"pos": (-5.0, -5.0, 0.0), "yaw": 0.0},
-            "6": {"pos": (5.0, 0.0, 0.0), "yaw": (1 / 2) * torch.pi},
-            "7": {"pos": (0.0, 5.0, 0.0), "yaw": torch.pi},
+            "1": {"pos": (2.0, 0.0, 1.5), "yaw": 0.0},
+            "2": {"pos": (8.0, 2.5, 1.5), "yaw": 0.0},
+            "3": {"pos": (14.0, -2.5, 1.5), "yaw": 0.0},
+            "4": {"pos": (20.0, 2.5, 1.5), "yaw": 0.0},
+            "5": {"pos": (26.0, -2.5, 1.5), "yaw": 0.0},
+            "6": {"pos": (32.0, 2.5, 1.5), "yaw": 0.0},
+            "7": {"pos": (38.0, -2.5, 1.5), "yaw": 0.0},
         }
     )
 
     # robot
-    robot: ArticulationCfg = FIVE_IN_DRONE.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg = A2R_DRONE.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     # sensors
     collision_sensor: ContactSensorCfg = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", debug_vis=True)
     imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body", debug_vis=False)
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(0.14, 0.0, 0.05), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
+        #offset=TiledCameraCfg.OffsetCfg(pos=(0.14, 0.0, 0.05), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0, -0.1323518, 0, 0.9912028), convention="world"),
         data_types=["rgb"],
-        spawn=sim_utils.FisheyeCameraCfg(),
-        width=1000,
-        height=1000,
+        spawn=sim_utils.PinholeCameraCfg(),
+        width=640,
+        height=480,
     )
 
     # lights

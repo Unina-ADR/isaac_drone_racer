@@ -141,18 +141,18 @@ class ControlActionCfg(ActionTermCfg):
 
     asset_name: str = "robot"
     """Name of the asset in the environment for which the commands are generated."""
-    arm_length: float = 0.035
+    arm_length: float = 0.1825
     """Length of the arms of the drone in meters."""
     drag_coef: float = 1.5e-9
     """Drag torque coefficient."""
-    thrust_coef: float = 2.25e-7
+    thrust_coef: float = 5.3453e-7
     """Thrust coefficient.
-    Calculated with 5145 rad/s max angular velociy, thrust to weight: 4, mass: 0.6076 kg and gravity: 9.81 m/s^2.
-    thrust_coef = (4 * 0.6076 * 9.81) / (4 * 5145**2) = 2.25e-7."""
-    omega_max: float = 5145.0
+    Calculated with 5145 rad/s max angular velociy, thrust to weight: 7.69, mass: 0.8702 kg and gravity: 9.81 m/s^2.
+    thrust_coef = (7.69 * 0.8702 * 9.81) / (4 * 5541**2) = 6.8858e-7."""
+    omega_max: float = 5541.0
     """Maximum angular velocity of the drone motors in rad/s.
-    Calculated with 1950KV motor, with 6S LiPo battery with 4.2V per cell.
-    1950 * 6 * 4.2 = 49,140 RPM ~= 5145 rad/s."""
+    Calculated with 2100KV motor, with 6S LiPo battery with 3.7V per cell.
+    2100 * 6 * 4.2 = 52,920 RPM ~= 5541 rad/s."""
     taus: list[float] = (0.0001, 0.0001, 0.0001, 0.0001)
     """Time constants for each motor."""
     init: list[float] = (2572.5, 2572.5, 2572.5, 2572.5)
