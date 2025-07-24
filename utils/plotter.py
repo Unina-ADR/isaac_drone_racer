@@ -23,13 +23,13 @@ def generate_plots(log_directory: str):  # noqa: C901
         log_directory (str): Path to the csv log file.
     """
 
-    plot_position = False
-    plot_orientation_from_quat = False
-    plot_orientation_from_rot_mat = False
-    plot_velocity = False
-    plot_angular_velocity = False
-    plot_rotors_ang_vel = False
-    plot_actions = False
+    plot_position = True
+    plot_orientation_from_quat =True
+    plot_orientation_from_rot_mat = True
+    plot_velocity = True
+    plot_angular_velocity = True
+    plot_rotors_ang_vel = True
+    plot_actions = True
 
     plt.style.use(["science", "ieee", "bright", "no-latex"])
     matplotlib.rcParams.update({"font.size": 6})

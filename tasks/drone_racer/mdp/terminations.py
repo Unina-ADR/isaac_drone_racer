@@ -42,3 +42,46 @@ def flyaway(
     # Compute distance
     distance_tensor = torch.linalg.norm(asset.data.root_pos_w - target_pos_tensor, dim=1)
     return distance_tensor > distance
+
+
+def out_of_bounds(
+    env: ManagerBasedRLEnv,
+    bounds: tuple[float, float], # (y_max, z_max)
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Terminate when the asset's position is out of the specified bounds."""
+
+    asset: RigidObject = env.scene[asset_cfg.name]
+
+    # Get the asset's position
+    pos_y = asset.data.root_pos_w[:, 1] # Get the y position
+    pos_z = asset.data.root_pos_w[:, 2] # Get the z position
+
+    # Check if the position is out of bounds
+    #out_of_bounds_x = (pos[:, 0] < -bounds[0]) | (pos[:, 0] > bounds[0])
+    out_of_bounds_y = (pos_y[:] < -bounds[0]) | (pos_y[:] > bounds[0])
+    out_of_bounds_z = (pos_z[:] < 0.1) | (pos_z[:] > bounds[1])
+
+    return out_of_bounds_y | out_of_bounds_z
+
+
+
+# def time_out(
+#     env: ManagerBasedRLEnv,
+#     command_name: str = "target",
+#     timeout_s: float = 5.0,
+# ) -> torch.Tensor:
+#     """
+#     Returns True for envs where the target_pos command has not been updated for timeout_s seconds.
+#     Assumes env has .sim_time and command manager/term tracks last update time per env.
+#     """
+#     # Get the command term
+#     command_term = env.command_manager.get_term(command_name)
+#     elapsed_time = env.action_manager.get_term("control_action").elapsed_time
+#     # You must ensure last_update_time is tracked in your command term (shape: [num_envs])
+#     # For example, update command_term.last_update_time[env_ids] = env.sim_time when command is updated
+
+#     # Compute time since last update for each env
+#     time_since_update = env.sim_time - command_term.last_update_time  # [num_envs]
+#     # Return mask: True if timed out
+#     return time_since_update > timeout_s

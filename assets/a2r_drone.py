@@ -32,15 +32,16 @@ A2R_DRONE = ArticulationCfg(
         copy_from_source=False,
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.0),
+        pos=(0.0, 0.0, 0.1),
         joint_pos={
             ".*": 0.0,
         },
         joint_vel={
             "m1_joint": 200.0,
             "m2_joint": -200.0,
-            "m3_joint": 200.0,
-            "m4_joint": -200.0,
+            "m3_joint": -200.0,
+            "m4_joint": 200.0,
+            #".*": 0.0,  # Set all joint velocities to 0.0
         },
     ),
     actuators={

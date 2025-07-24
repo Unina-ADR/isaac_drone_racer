@@ -37,24 +37,24 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
 
     # track
     track: RigidObjectCollectionCfg = generate_track(
-        # track_config={
-        #     "1": {"pos": (0.0, 0.0, 1.5), "yaw": 0.0},
-        #     "2": {"pos": (10.0, 5.0, 1.5), "yaw": 0.0},
-        #     "3": {"pos": (10.0, -5.0, 1.5), "yaw": (5 / 4) * torch.pi},
-        #     "4": {"pos": (-5.0, -5.0, 4.0), "yaw": torch.pi},
-        #     "5": {"pos": (-5.0, -5.0, 1.5), "yaw": 0.0},
-        #     "6": {"pos": (5.0, 0.0, 1.5), "yaw": (1 / 2) * torch.pi},
-        #     "7": {"pos": (0.0, 5.0, 1.5), "yaw": torch.pi},
-        # }
         track_config={
-            "1": {"pos": (2.0, 0.0, 1.5), "yaw": 0.0},
-            "2": {"pos": (8.0, 2.5, 1.5), "yaw": 0.0},
-            "3": {"pos": (14.0, -2.5, 1.5), "yaw": 0.0},
-            "4": {"pos": (20.0, 2.5, 1.5), "yaw": 0.0},
-            "5": {"pos": (26.0, -2.5, 1.5), "yaw": 0.0},
-            "6": {"pos": (32.0, 2.5, 1.5), "yaw": 0.0},
-            "7": {"pos": (38.0, -2.5, 1.5), "yaw": 0.0},
+            "1": {"pos": (0.0, 0.0, 1.5), "yaw": 0.0},
+            "2": {"pos": (10.0, 5.0, 1.5), "yaw": 0.0},
+            "3": {"pos": (10.0, -5.0, 1.5), "yaw": (5 / 4) * torch.pi},
+            "4": {"pos": (-5.0, -5.0, 4.0), "yaw": torch.pi},
+            "5": {"pos": (-5.0, -5.0, 1.5), "yaw": 0.0},
+            "6": {"pos": (5.0, 0.0, 1.5), "yaw": (1 / 2) * torch.pi},
+            "7": {"pos": (0.0, 5.0, 1.5), "yaw": torch.pi},
         }
+        # track_config={
+        #     "1": {"pos": (1.0, 0.0, 1.5), "yaw": 0.0},
+        #     "2": {"pos": (6.0, 2.5, 1.5), "yaw": 0.0},
+        #     "3": {"pos": (11.0, -2.5, 1.5), "yaw": 0.0},
+        #     "4": {"pos": (16.0, 2.5, 1.5), "yaw": 0.0},
+        #     "5": {"pos": (21.0, -2.5, 1.5), "yaw": 0.0},
+        #     "6": {"pos": (26.0, 2.5, 1.5), "yaw": 0.0},
+        #     "7": {"pos": (31.0, -2.5, 1.5), "yaw": 0.0},
+        # }
     )
 
     # robot
@@ -65,8 +65,7 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
     imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body", debug_vis=False)
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-        #offset=TiledCameraCfg.OffsetCfg(pos=(0.14, 0.0, 0.05), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0, -0.1323518, 0, 0.9912028), convention="world"),
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(),
         width=640,
@@ -97,10 +96,11 @@ class ObservationsCfg:
 
         position = ObsTerm(func=mdp.root_pos_w)
         attitude = ObsTerm(func=mdp.root_quat_w)
-        lin_vel = ObsTerm(func=mdp.root_lin_vel_b)
-        ang_vel = ObsTerm(func=mdp.root_ang_vel_b)
+        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 20.0})
+        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.0})
         target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target"})
         actions = ObsTerm(func=mdp.last_action)
+        #waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})
 
         def __post_init__(self) -> None:
             self.enable_corruption = False
@@ -135,12 +135,12 @@ class EventCfg:
         mode="reset",
         params={
             "pose_range": {
-                "x": (-3.5, -1.5),
+                "x": (-2.5, -1.5),
                 "y": (-0.5, 0.5),
-                "z": (1.5, 0.5),
+                "z": (1.5, 1.0),
                 "roll": (-0.0, 0.0),
                 "pitch": (-0.0, 0.0),
-                "yaw": (-0.0, 0.0),
+                "yaw": (0.0, 0.0), 
             },
             "velocity_range": {
                 "x": (0.0, 0.0),
@@ -154,15 +154,15 @@ class EventCfg:
     )
 
     # intervals
-    push_robot = EventTerm(
-        func=mdp.apply_external_force_torque,
-        mode="interval",
-        interval_range_s=(0.0, 0.2),
-        params={
-            "force_range": (-0.1, 0.1),
-            "torque_range": (-0.05, 0.05),
-        },
-    )
+    # push_robot = EventTerm(
+    #     func=mdp.apply_external_force_torque,
+    #     mode="interval",
+    #     interval_range_s=(0.0, 0.2),
+    #     params={
+    #         "force_range": (-0.1, 0.1),
+    #         "torque_range": (-0.05, 0.05),
+    #     },
+    # )
 
 
 @configclass
@@ -183,12 +183,37 @@ class CommandsCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
+
+    #NB: Ho scalato 20x tutti i reward per rispettare l'implementazione originale di isaac_drone_racer
+    
     terminating = RewTerm(func=mdp.is_terminated, weight=-500.0)
-    ang_vel_l2 = RewTerm(func=mdp.ang_vel_l2, weight=-0.0001)
+    
+    #ang_vel_l2 = RewTerm(func=mdp.ang_vel_l2, weight=-0.0001)
+    #yaw_vel = RewTerm(func=mdp.yaw_vel, weight=-0.001)
     progress = RewTerm(func=mdp.progress, weight=20.0, params={"command_name": "target"})
     gate_passed = RewTerm(func=mdp.gate_passed, weight=400.0, params={"command_name": "target"})
-    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=0.1, params={"command_name": "target", "std": 0.5})
-
+    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=0.1, params={"command_name": "target", "std": -10.0})
+    action_reward = RewTerm(
+        func=mdp.action_reward, weight=1, params={"weight_omega": -0.0002, "weight_rate": -0.0001}
+    )
+    # linear_vel_forward = RewTerm(
+    #     func=mdp.linear_vel_forward, weight=-0.02, params={}
+    # )
+    time_reward = RewTerm(
+        func=mdp.time_reward, weight=-0.01, params={}
+    )
+    # lin_vel_to_next_gate= RewTerm(
+    #     func=mdp.lin_vel_to_next_gate, weight=-0.01, params={"command_name": "target"}
+    # )
+    # linear_vel_side = RewTerm(
+    #     func=mdp.linear_vel_side, weight=-2.0, params={}
+    # )
+    # guidance_reward = RewTerm(
+    #     func=mdp.guidance_reward, weight=-20.0, params={"command_name": "target"}
+    # )
+    # pitch_reward = RewTerm(
+    #     func=mdp.pitch_reward, weight=-0.1, params={}
+    # )
 
 @configclass
 class TerminationsCfg:
@@ -197,8 +222,12 @@ class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
     flyaway = DoneTerm(func=mdp.flyaway, params={"command_name": "target", "distance": 20.0})
     collision = DoneTerm(
-        func=mdp.illegal_contact, params={"sensor_cfg": SceneEntityCfg("collision_sensor"), "threshold": 0.01}
+        func=mdp.illegal_contact, params={"sensor_cfg": SceneEntityCfg("collision_sensor"), "threshold": 0.0001}
     )
+    # out_of_bounds = DoneTerm(
+    #     func=mdp.out_of_bounds,
+    #     params={"bounds": (6.0, 8.0), "asset_cfg": SceneEntityCfg("robot")} #y_max, z_max 
+    # )
 
 
 @configclass

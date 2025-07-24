@@ -1,0 +1,83 @@
+[DEBUG] _compute_input_map_script: command shape: [1, 4]
+[DEBUG] _compute_input_map_script: center_sensitivity:  70
+ 70
+ 70
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_input_map_script: max_rate:  670
+ 670
+ 670
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_input_map_script: rate_expo:  0
+ 0
+ 0
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_input_map_script: cmd_aer shape: [1, 3]
+[DEBUG] _compute_input_map_script: des_body_rates (deg/s):  0 -75  0
+[ CUDAFloatType{1,3} ]
+[DEBUG] _compute_input_map_script: des_body_rates (rad/s):  0.0000 -1.3090  0.0000
+[ CUDAFloatType{1,3} ]
+[DEBUG] _compute_pid_sum_script: kp:  45
+ 47
+ 45
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_pid_sum_script: ki:  80
+ 84
+ 80
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_pid_sum_script: kd:  30
+ 34
+  0
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_pid_sum_script: kff:  120
+ 125
+ 120
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_pid_sum_script: pid_sum_lim:  1000
+ 1000
+ 1000
+[ CUDAFloatType{3} ]
+[DEBUG] _compute_pid_sum_script: pid_sum_mixer_scale: 1000.
+[DEBUG] _compute_pid_sum_script: err_ang_vel shape: [1, 3]
+[DEBUG] _compute_pid_sum_script: int_err_ang_vel shape: [1, 3]
+[DEBUG] _compute_pid_sum_script: d_ang_vel shape: [1, 3]
+[DEBUG] _compute_pid_sum_script: des_ang_vel shape: [1, 3]
+[DEBUG] _compute_pid_sum_script: pid_sum (before clamp):  0.0000 -335.1032  0.0000
+[ CUDAFloatType{1,3} ]
+[DEBUG] _compute_pid_sum_script: pid_sum (after clamp):  0.0000 -335.1032  0.0000
+[ CUDAFloatType{1,3} ]
+[DEBUG] _compute_pid_sum_script: pid_sum (after scale):  0.0000 -0.3351  0.0000
+[ CUDAFloatType{1,3} ]
+[DEBUG] _compute_mixing_script: mix_table shape: [4, 4]
+[DEBUG] _compute_mixing_script: pid_sum shape: [1, 3]
+[DEBUG] _compute_mixing_script: cmd_t shape: [1]
+[DEBUG] _compute_mixing_script: throttle_low_freq_component shape: [1]
+[DEBUG] _compute_mixing_script: rpy_u shape: [1, 4]
+[DEBUG] _compute_mixing_script: rpy_u:  0.2758 -0.3351  0.3351  0.2758
+[ CUDAFloatType{1,4} ]
+[DEBUG] _compute_mixing_script: rpy_u_max:  0.3351
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: rpy_u_min: -0.3351
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: rpy_u_range:  0.6702
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: norm_factor:  1
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: rpy_u_normalized shape: [1, 4]
+[DEBUG] _compute_mixing_script: throttle_high_freq_component: 0.01 *
+10.0000
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: throttle (before clamp):  1.1000
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: throttle (after clamp):  1
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: throttle (after linearization step 1):  1
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: throttle (after constrain):  0.6649
+[ CUDAFloatType{1} ]
+[DEBUG] _compute_mixing_script: u_rpy_t shape: [1, 4]
+[DEBUG] _compute_mixing_script: u_rpy_t (after linearization step 2):  0.9420  0.3890  1.0000  0.9420
+[ CUDAFloatType{1,4} ]
+[DEBUG] _compute_mixing_script: u (final output):  0.9449  0.4196  1.0000  0.9449
+[ CUDAFloatType{1,4} ]
+Desired angular velocity (rad/s): tensor([[ 0.0000, -1.3090,  0.0000]], device='cuda:0')
+Motor outputs: tensor([[0.9449, 0.4196, 1.0000, 0.9449]], device='cuda:0')
