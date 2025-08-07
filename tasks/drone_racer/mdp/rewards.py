@@ -132,12 +132,15 @@ def lookat_next_gate(
     
 
     #dot = (drone_x_axis * vec_to_gate).sum(dim=1).clamp(-1.0, 1.0)
-    dot = (cam_x_axis * vec_to_gate).sum(dim=1).clamp(-1.0, 1.0)
-    sign = torch.sign(dot)
-    angle = torch.acos(dot)
-    #expangle = torch.pow(angle, 4)
-    expangle = torch.pow(angle, 2)
-    return sign*torch.exp(expangle * std)
+    dot = (cam_x_axis * vec_to_gate).sum(dim=1)
+    cosine= dot/(torch.norm(cam_x_axis, dim=1)* torch.norm(vec_to_gate, dim=1))
+    cosine = torch.clamp(cosine, -1.0, 1.0)  # Ensure cosine is within [-1, 1]
+    #sign = torch.sign(dot)
+    angle = torch.acos(cosine)
+    #angle.nan_to_num_(nan=0.0)  # Replace NaN with 0.0
+    expangle = torch.pow(angle, 4)
+    #expangle = torch.pow(angle, 2)
+    return torch.exp(expangle * std)
 
 
 def ang_vel_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:

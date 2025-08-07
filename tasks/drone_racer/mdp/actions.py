@@ -46,6 +46,7 @@ class ControlAction(ActionTerm):
 
         self._elapsed_time = torch.zeros(self.num_envs, 1, device=self.device)
         self._raw_actions = torch.zeros(self.num_envs, 4, device=self.device)
+        self._raw_actions_obs = torch.zeros(self.num_envs, 4, device=self.device)
         self._processed_actions = torch.zeros(self.num_envs, 4, device=self.device)
         self._thrust = torch.zeros(self.num_envs, 1, 3, device=self.device)
         self._moment = torch.zeros(self.num_envs, 1, 3, device=self.device)
@@ -92,6 +93,10 @@ class ControlAction(ActionTerm):
     def raw_actions(self) -> torch.Tensor:
         return self._raw_actions
 
+    @property 
+    def raw_actions_obs(self) -> torch.Tensor:
+        return self._raw_actions_obs
+
     @property
     def processed_actions(self) -> torch.Tensor:
         return self._processed_actions
@@ -111,6 +116,8 @@ class ControlAction(ActionTerm):
 
     def process_actions(self, actions: torch.Tensor):
         self._last_action.copy_(self._processed_actions)
+        self._raw_actions_obs.copy_(self._raw_actions)
+        #self._last_action.copy_(self._raw_actions)
         # self._raw_actions[:] = actions
         # clamped = self._raw_actions.clamp_(-1.0, 1.0)
         # self._controller.set_command(clamped)
@@ -141,7 +148,7 @@ class ControlAction(ActionTerm):
         # ).squeeze(1)
         # self._processed_actions = torch.cat([thrust_flu.unsqueeze(1), moment_flu], dim=1)
 
-        self._raw_actions[:] = actions
+        self._raw_actions[:] = actions #.clamp_(-1.0, 1.0)
         clamped = self._raw_actions.clamp_(-1.0, 1.0)
         mapped = (clamped + 1.0) / 2.0
         omega_ref = self.cfg.omega_max * mapped
@@ -196,20 +203,22 @@ class ControlActionCfg(ActionTermCfg):
     """Name of the asset in the environment for which the commands are generated."""
     arm_length: float = 0.1825
     """Length of the arms of the drone in meters."""
-    drag_coef: float = 8.97e-9
+    #drag_coef: float = 8.97e-9 #CALCOLATO COL SENSORE ATI
+    drag_coef: float = 7.6909678e-9
     """Drag torque coefficient."""
-    thrust_coef: float = 6.888e-7
+    #thrust_coef: float = 6.888e-7 #CALCOLATO COL SENSORE ATI
+    thrust_coef: float = 1.52117969e-5
     """Thrust coefficient.
     Calculated with 5145 rad/s max angular velociy, thrust to weight: 7.69, mass: 0.8702 kg and gravity: 9.81 m/s^2.
     thrust_coef = (7.69 * 0.8702 * 9.81) / (4 * 5541**2) = 5.3453e-7."""
     #omega_max: float = 5541.0 # Full battery
-    omega_max: float = 5014.0
+    omega_max: float = 1885.0
     """Maximum angular velocity of the drone motors in rad/s.
     Calculated with 2100KV motor, with 6S LiPo battery with 3.8V per cell.
     2100 * 6 * 4.2 = 47,780 RPM ~= 5541 rad/s."""
     taus: list[float] = (0.0001, 0.0001, 0.0001, 0.0001)
     """Time constants for each motor."""
-    init: list[float] = (2572.5, 2572.5, 2572.5, 2572.5)
+    init: list[float] = (100.0, 100.0, 100.0, 100.0)
     """Initial angular velocities for each motor in rad/s."""
     max_rate: list[float] = (50000.0, 50000.0, 50000.0, 50000.0)
     """Maximum rate of change of angular velocities for each motor in rad/s^2."""

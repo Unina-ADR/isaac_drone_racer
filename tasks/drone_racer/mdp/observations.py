@@ -72,13 +72,14 @@ def root_rotmat_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntit
     return flat_rotmat
 
 
-def root_pos_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+def root_pos_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), pos_max : float = 30.0) -> torch.Tensor:
     """Asset root position in the world frame."""
     asset: RigidObject = env.scene[asset_cfg.name]
     position = asset.data.root_pos_w
     log(env, ["px", "py", "pz"], position)
+    scaled_position = position / pos_max  # Scale to [-1, 1]
     #return position.clamp_(min=-1.0, max=1.0)
-    return position
+    return scaled_position
 
 def root_pose_g(
     env: ManagerBasedRLEnv,
@@ -113,6 +114,14 @@ def root_pose_g(
 
     #return position.clamp_(min=-1.0, max=1.0)
     return position
+
+
+def action_obs(env:ManagerBasedRLEnv) -> torch.Tensor:
+    """Last raw action taken by the agent."""
+    action_term = env.action_manager.get_term("control_action")
+    action = action_term.raw_actions_obs  # [num_envs, 4]
+
+    return action
 
 # def next_gate_pose_g(
 #     env: ManagerBasedRLEnv,
@@ -149,6 +158,7 @@ def target_pos_b(
     env: ManagerBasedRLEnv,
     command_name: str | None = None,
     target_pos: list | None = None,
+    pos_max: float = 30.0,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ) ->  torch.Tensor:
     """Position of target in body frame."""
@@ -158,23 +168,32 @@ def target_pos_b(
     if target_pos is None:
         target_pos = env.command_manager.get_term(command_name).command[:, :3]
         target_pos_tensor = target_pos[:, :3]
+        next_target_pos = env.command_manager.get_term(command_name).next_command[:, :3]
+        next_target_pos_tensor = next_target_pos[:, :3]
     else:
         target_pos_tensor = (
             torch.tensor(target_pos, dtype=torch.float32, device=asset.device).repeat(env.num_envs, 1)
             + env.scene.env_origins
         )
+        next_target_pos_tensor = (torch.tensor(next_target_pos, dtype=torch.float32, device=asset.device).repeat(env.num_envs, 1)
+            + env.scene.env_origins
+        )
 
     pos_b, _ = math_utils.subtract_frame_transforms(asset.data.root_pos_w, asset.data.root_quat_w, target_pos_tensor)
 
+    pos_b = pos_b / pos_max  # Scale to [-1, 1]
+    next_pos_b, _ = math_utils.subtract_frame_transforms(asset.data.root_pos_w, asset.data.root_quat_w, next_target_pos_tensor)
+    next_pos_b = next_pos_b / pos_max  # Scale to [-1, 1]
+    return torch.cat([pos_b, next_pos_b], dim=-1)  # [num_envs, 6]
     #return pos_b.clamp_(min=-1.0, max=1.0)
-    return pos_b
+    #return pos_b
 
 
 def waypoint_obs(
-     env: ManagerBasedRLEnv,
-     command_name,  # Pass the GateTargetingCommand instance here
-     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-     l_max: float = 10.0,
+    env: ManagerBasedRLEnv,
+    command_name,  # Pass the GateTargetingCommand instance here
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    l_max: float = 10.0,
 ) -> torch.Tensor:
     """34-dimensional waypoint observation using current and next gate indices from command_term."""
     asset: RigidObject = env.scene[asset_cfg.name]

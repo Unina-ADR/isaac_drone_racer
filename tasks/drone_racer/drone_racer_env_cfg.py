@@ -94,13 +94,13 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        position = ObsTerm(func=mdp.root_pos_w)
+        position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0})
         attitude = ObsTerm(func=mdp.root_quat_w)
         lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 20.0})
-        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.0})
-        target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target"})
-        actions = ObsTerm(func=mdp.last_action)
-        #waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})
+        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 15.0})
+        #target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 30.0})
+        actions = ObsTerm(func=mdp.action_obs)
+        waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})
 
         def __post_init__(self) -> None:
             self.enable_corruption = False
@@ -190,27 +190,27 @@ class RewardsCfg:
     
     #ang_vel_l2 = RewTerm(func=mdp.ang_vel_l2, weight=-0.0001)
     #yaw_vel = RewTerm(func=mdp.yaw_vel, weight=-0.001)
-    progress = RewTerm(func=mdp.progress, weight=20.0, params={"command_name": "target"})
+    progress = RewTerm(func=mdp.progress, weight=30.0, params={"command_name": "target"})
+    
     gate_passed = RewTerm(func=mdp.gate_passed, weight=400.0, params={"command_name": "target"})
-    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=0.1, params={"command_name": "target", "std": -10.0})
-    action_reward = RewTerm(
-        func=mdp.action_reward, weight=1, params={"weight_omega": -0.0002, "weight_rate": -0.0001}
-    )
-    # linear_vel_forward = RewTerm(
-    #     func=mdp.linear_vel_forward, weight=-0.02, params={}
-    # )
-    time_reward = RewTerm(
-        func=mdp.time_reward, weight=-0.01, params={}
-    )
+    
+    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=0.10, params={"command_name": "target", "std": -10.0})
+    
+    action_reward = RewTerm(func=mdp.action_reward, weight=1, params={"weight_omega": -0.0002, "weight_rate": -0.0001})
+    
+    linear_vel_forward = RewTerm(func=mdp.linear_vel_forward, weight=-0.02, params={})
+    
+    linear_vel_side = RewTerm(func=mdp.linear_vel_side, weight=-0.01, params={})
+
     # lin_vel_to_next_gate= RewTerm(
     #     func=mdp.lin_vel_to_next_gate, weight=-0.01, params={"command_name": "target"}
     # )
-    # linear_vel_side = RewTerm(
-    #     func=mdp.linear_vel_side, weight=-2.0, params={}
+    # time_reward = RewTerm(
+    #     func=mdp.time_reward, weight=-0.01, params={}
     # )
-    # guidance_reward = RewTerm(
-    #     func=mdp.guidance_reward, weight=-20.0, params={"command_name": "target"}
-    # )
+    guidance_reward = RewTerm(
+        func=mdp.guidance_reward, weight=-1.0, params={"command_name": "target"}
+    )
     # pitch_reward = RewTerm(
     #     func=mdp.pitch_reward, weight=-0.1, params={}
     # )
