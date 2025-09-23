@@ -20,9 +20,8 @@ class BetaflightControllerParams:
     device: str = "cuda"
     num_envs: int = 64
     dt: float = 1 / 500
-    thrust_coeff: float = 5.3453e-7
-    drag_coeff: float = 1.5e-9
-
+    thrust_coeff: float = 1.52117969e-5
+    drag_coeff: float = 7.6909678e-9
     center_sensitivity: List[float] = field(
         default_factory=lambda: [70.0, 70.0, 70.0]
     )
@@ -39,7 +38,7 @@ class BetaflightControllerParams:
     pid_sum_lim: List[float] = field(default_factory=lambda: [1000.0, 1000.0, 1000.0])
 
     # d-term low pass filter cutoff frequency in Hz
-    dterm_lpf_cutoff: float = 200
+    dterm_lpf_cutoff: float = 100
 
     # rotor positions in body FRD frame
     # all rotors are assumed to only produce thrust along the body-z axis
@@ -59,10 +58,10 @@ class BetaflightControllerParams:
     #     default_factory=lambda: [0.097143, 0.097143, -0.097143, -0.097143]
     # )
     rotors_x: List[float] = field(
-        default_factory=lambda: [-0.122, 0.14825, -0.14825, -0.122]
+        default_factory=lambda: [-0.122, 0.14825, -0.122, -0.14825]
     )
     rotors_y: List[float] = field(
-        default_factory=lambda: [0.1343, 0.10474, -0.10474, -0.1343]
+        default_factory=lambda: [0.1343, 0.10474, -0.1343, -0.10474]
     )
     rotors_dir: List[int] = field(default_factory=lambda: [1, -1, -1, 1])
     pid_sum_mixer_scale: float = 1000.0
@@ -156,10 +155,6 @@ class BetaflightController:
         self.last_ang_vel[env_ids, ...] = 0.0
         self.dterm_lpf.reset(env_ids)
         self.throttle_boost_lpf.reset(env_ids)
-
-
-
-
 
 
 

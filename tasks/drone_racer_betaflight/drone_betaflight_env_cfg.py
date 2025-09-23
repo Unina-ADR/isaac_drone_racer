@@ -27,7 +27,7 @@ from assets.a2r_drone import A2R_DRONE  # isort:skip
 
 
 @configclass
-class DroneRacerSceneCfg(InteractiveSceneCfg):
+class DroneBetaflightSceneCfg(InteractiveSceneCfg):
 
     # ground plane
     ground = AssetBaseCfg(
@@ -38,13 +38,10 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
     # track
     track: RigidObjectCollectionCfg = generate_track(
         track_config={
-            "1": {"pos": (0.0, 0.0, 1.5), "yaw": 0.0},
-            "2": {"pos": (10.0, 5.0, 1.5), "yaw": 0.0},
-            "3": {"pos": (10.0, -5.0, 1.5), "yaw": (5 / 4) * torch.pi},
-            "4": {"pos": (-5.0, -5.0, 4.0), "yaw": torch.pi},
-            "5": {"pos": (-5.0, -5.0, 1.5), "yaw": 0.0},
-            "6": {"pos": (5.0, 0.0, 1.5), "yaw": (1 / 2) * torch.pi},
-            "7": {"pos": (0.0, 5.0, 1.5), "yaw": torch.pi},
+            "1": {"pos": (5.0,  3.0, 1.5), "yaw": 0.0},
+            "2": {"pos": (10.0, 5.0, 1.5), "yaw": (5 / 4) * torch.pi},
+            "3": {"pos": (6.0, -3.0, 1.5), "yaw": (1 / 6) * torch.pi},
+            "4": {"pos": (2.0, -6.0, 1.5), "yaw": (1/2) * torch.pi},
         }
         # track_config={
         #     "1": {"pos": (1.0, 0.0, 1.5), "yaw": 0.0},
@@ -96,8 +93,8 @@ class ObservationsCfg:
 
         position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0})
         attitude = ObsTerm(func=mdp.root_quat_w)
-        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 20.0})
-        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 15.0})
+        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 5.0})
+        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.69})
         #target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 30.0})
         actions = ObsTerm(func=mdp.action_obs)
         waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})
@@ -231,9 +228,9 @@ class TerminationsCfg:
 
 
 @configclass
-class DroneRacerEnvCfg(ManagerBasedRLEnvCfg):
+class DroneBetaflightEnvCfg(ManagerBasedRLEnvCfg):
     # Scene settings
-    scene: DroneRacerSceneCfg = DroneRacerSceneCfg(num_envs=4096, env_spacing=0.0)
+    scene: DroneBetaflightSceneCfg = DroneBetaflightSceneCfg(num_envs=4096, env_spacing=0.0)
     # MDP settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
@@ -267,9 +264,9 @@ class DroneRacerEnvCfg(ManagerBasedRLEnvCfg):
 
 
 @configclass
-class DroneRacerEnvCfg_PLAY(ManagerBasedRLEnvCfg):
+class DroneBetaflightEnvCfg_PLAY(ManagerBasedRLEnvCfg):
     # Scene settings
-    scene: DroneRacerSceneCfg = DroneRacerSceneCfg(num_envs=4096, env_spacing=0.0)
+    scene: DroneBetaflightSceneCfg = DroneBetaflightSceneCfg(num_envs=4096, env_spacing=0.0)
     # MDP settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()

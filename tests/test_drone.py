@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-This script demonstrates how to simulate a quadcopter.
+This script spawns a quadcopter and idles the simulation (no controls).
 
 .. code-block:: bash
 
@@ -21,7 +21,7 @@ import torch
 from isaaclab.app import AppLauncher
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="This script demonstrates how to simulate a quadcopter.")
+parser = argparse.ArgumentParser(description="This script spawns a quadcopter and idles the simulation (no controls).")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -40,109 +40,57 @@ from isaaclab.sim import SimulationContext
 from isaaclab.utils import configclass
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.sensors import TiledCameraCfg
-from dynamics import Allocation
-
-##
-# Pre-defined configs
-##
 from assets.a2r_drone import A2R_DRONE  # isort:skip
 
 
 @configclass
 class TestSceneCfg(InteractiveSceneCfg):
-    """Configuration for a cart-pole scene."""
+    """Configuration for a minimal quadcopter scene."""
 
-    # ground plane
     ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
-
-    # lights
     dome_light = AssetBaseCfg(
         prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
     )
-
-    # articulation
     robot: ArticulationCfg = A2R_DRONE.replace(prim_path="{ENV_REGEX_NS}/Robot")
-
-    tiled_camera: TiledCameraCfg = TiledCameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-        #offset=TiledCameraCfg.OffsetCfg(pos=(0.14, 0.0, 0.05), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
-        data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(),
-        width=640,
-        height=480,
-    )
+    # tiled_camera: TiledCameraCfg = TiledCameraCfg(
+    #     prim_path="{ENV_REGEX_NS}/Robot/body/camera",
+    #     offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
+    #     data_types=["rgb"],
+    #     spawn=sim_utils.PinholeCameraCfg(),
+    #     width=640,
+    #     height=480,
+    # )
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
-    """Runs the simulation loop."""
-    # Extract scene entities
-    # note: we only do this here for readability.
+    """Runs a passive simulation loop (no control, no periodic reset)."""
     robot = scene["robot"]
-    # Define simulation stepping
     sim_dt = sim.get_physics_dt()
-    count = 0
-    # Simulation loop
-    joint_vel_target = torch.zeros_like(robot.data.joint_pos)
-    joint_vel_target[0] = -200.0  # m2_joint
+
+    # One-time placement of robot root at environment origins.
+    root_state = robot.data.default_root_state.clone()
+    root_state[:, :3] += scene.env_origins
+    robot.write_root_pose_to_sim(root_state[:, :7])
+    robot.write_root_velocity_to_sim(root_state[:, 7:])
+    scene.reset()
+    print("[INFO]: Drone spawned. Running passive simulation...")
+
     while simulation_app.is_running():
-        #Reset
-        if count % 500 == 0:
-            # reset counter
-            count = 0
-            # reset the scene entities
-            # root state
-            # we offset the root state by the origin since the states are written in simulation world frame
-            # if this is not done, then the robots will be spawned at the (0, 0, 0) of the simulation world
-            root_state = robot.data.default_root_state.clone()
-            root_state[:, :3] += scene.env_origins
-            robot.write_root_pose_to_sim(root_state[:, :7])
-            robot.write_root_velocity_to_sim(root_state[:, 7:])
-            # set joint positions with some noise
-            joint_pos, joint_vel = robot.data.default_joint_pos.clone(), robot.data.default_joint_vel.clone()
-            joint_vel = robot.data.default_joint_vel.clone()
-            #joint_pos += torch.rand_like(joint_pos) * 0.1
-            robot.write_joint_state_to_sim(joint_pos, joint_vel)
-            #robot.set_joint_velocity_target(joint_vel)
-            # clear internal buffers
-            scene.reset()
-            print("[INFO]: Resetting robot state...")
-        # Apply random action
-        # -- generate random joint efforts
-        #efforts = torch.randn_like(robot.data.joint_pos) * 5.0
-        # -- apply action to the robot
-        robot.set_joint_velocity_target(joint_vel_target)
-        #robot.set_joint_effort_target(efforts)
-        # -- write data to sim
-        scene.write_data_to_sim()
-        # Perform step
         sim.step()
-        #Increment counter
-        count += 1
-        #Update buffers
         scene.update(sim_dt)
 
 
 def main():
-    """Main function."""
-    # Load kit helper
     sim_cfg = sim_utils.SimulationCfg(device=args_cli.device)
     sim = SimulationContext(sim_cfg)
-    # Set main camera
     sim.set_camera_view([2.5, 0.0, 4.0], [0.0, 0.0, 2.0])
-    # Design scene
     scene_cfg = TestSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
-    # Play the simulator
     sim.reset()
-    # Now we are ready!
-    print("[INFO]: Setup complete...")
-    # Run the simulator
+    print("[INFO]: Setup complete. Spawning drone only...")
     run_simulator(sim, scene)
 
 
 if __name__ == "__main__":
-    # run the main function
     main()
-    # close sim app
     simulation_app.close()

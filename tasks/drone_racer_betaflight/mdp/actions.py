@@ -111,7 +111,7 @@ class ControlAction(ActionTerm):
         r"""Elapsed time since the last action was applied."""
         return self._elapsed_time
     
-    """
+    """DroneBetaflightEnvCfg
     Operations.
     """
 
@@ -122,45 +122,37 @@ class ControlAction(ActionTerm):
         self._raw_actions[:] = actions #.clamp_(-1.0, 1.0)
         clamped = self._raw_actions.clamp_(-1.0, 1.0)
 
-        #NO BETAFLIGHT PROCESSING
-        mapped = (clamped + 1.0) / 2.0
-        omega_ref = self.cfg.omega_max * mapped
-        
-        omega_real = self._motor.compute(omega_ref)
-        self._processed_actions = self._allocation.compute(omega_real)
-
-
         # #BETAFLIGHT PROCESSING
-        # self._controller.set_command(clamped)
-        # #ang_vel is in FLU frame, we need to convert it to FRD frame
-        # ang_vel_flu = self._robot.data.root_ang_vel_w
-        # drone_quat = self._robot.data.root_quat_w
+        self._controller.set_command(clamped)
+        #ang_vel is in FLU frame, we need to convert it to FRD frame
+        ang_vel_flu = self._robot.data.root_ang_vel_b
+        #drone_quat = self._robot.data.root_quat_b
 
-        # ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
-        # # ang_vel_frd = torch.bmm(
-        # #     ang_vel_flu.unsqueeze(1),
-        # #     self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
-        # # ).squeeze(1)
-        # ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
-        # ang_vel_des, omega_ref_pwm = self._controller.compute(ang_vel_frd)
+        #ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
+        ang_vel_frd = torch.bmm(
+            ang_vel_flu.unsqueeze(1),
+            self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
+        ).squeeze(1)
+        #ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
+        ang_vel_des, omega_ref_pwm = self._controller.compute(ang_vel_frd)
 
 
-        # omega_ref = omega_ref_pwm * self.cfg.omega_max
-        # #omega_real = self._motor.compute(omega_ref)
-        # #everything is FRD to this point; we need to convert to FLU
-        # if self.cfg.use_motor_model == True:
-        #    omega_real = self._motor.compute(omega_ref)
-        # else:
-        #    omega_real = omega_ref
+        omega_ref = omega_ref_pwm * self.cfg.omega_max
+        #omega_real = self._motor.compute(omega_ref)
+        #everything is FRD to this point; we need to convert to FLU
+        if self.cfg.use_motor_model == True:
+           omega_real = self._motor.compute(omega_ref)
+        else:
+           omega_real = omega_ref
 
-        # thrust_torque_frd = self._controller.get_thrust_and_torque_command(self.cfg.omega_max, self.cfg.thrust_coef, self.cfg.drag_coef, omega_ref_pwm)
-        # thrust_flu = thrust_torque_frd[:, 0]
-        # moment_frd = thrust_torque_frd[:, 1:]
-        # moment_flu = torch.bmm(
-        #     moment_frd.unsqueeze(1),
-        #     self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
-        # ).squeeze(1)
-        # self._processed_actions = torch.cat([thrust_flu.unsqueeze(1), moment_flu], dim=1)
+        thrust_torque_frd = self._controller.get_thrust_and_torque_command(self.cfg.omega_max, self.cfg.thrust_coef, self.cfg.drag_coef, omega_ref_pwm)
+        thrust_flu = thrust_torque_frd[:, 0]
+        moment_frd = thrust_torque_frd[:, 1:]
+        moment_flu = torch.bmm(
+            moment_frd.unsqueeze(1),
+            self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
+        ).squeeze(1)
+        self._processed_actions = torch.cat([thrust_flu.unsqueeze(1), moment_flu], dim=1)
 
 
 
@@ -218,7 +210,6 @@ class ControlActionCfg(ActionTermCfg):
     """Thrust coefficient.
     Calculated with 5145 rad/s max angular velociy, thrust to weight: 7.69, mass: 0.8702 kg and gravity: 9.81 m/s^2.
     thrust_coef = (7.69 * 0.8702 * 9.81) / (4 * 5541**2) = 5.3453e-7."""
-    #omega_max: float = 5541.0 # Full battery
     omega_max: float = 1885.0
     """Maximum angular velocity of the drone motors in rad/s.
     Calculated with 2100KV motor, with 6S LiPo battery with 3.8V per cell.
@@ -231,5 +222,5 @@ class ControlActionCfg(ActionTermCfg):
     """Maximum rate of change of angular velocities for each motor in rad/s^2."""
     min_rate: list[float] = (-50000.0, -50000.0, -50000.0, -50000.0)
     """Minimum rate of change of angular velocities for each motor in rad/s^2."""
-    use_motor_model: bool = False
+    use_motor_model: bool = True
     """Flag to determine if motor delay is bypassed."""
