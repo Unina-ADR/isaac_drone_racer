@@ -125,12 +125,12 @@ class ControlAction(ActionTerm):
         # #BETAFLIGHT PROCESSING
         self._controller.set_command(clamped)
         #ang_vel is in FLU frame, we need to convert it to FRD frame
-        ang_vel_flu = self._robot.data.root_ang_vel_b
-        #drone_quat = self._robot.data.root_quat_b
+        #ang_vel_flu = self._robot.data.root_ang_vel_w
+        #drone_quat = self._robot.data.root_quat_w
 
-        #ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
+        ang_vel_frd_b = utils.quat_rotate_inverse(self._robot.data.root_quat_w, self._robot.data.root_ang_vel_w)
         ang_vel_frd = torch.bmm(
-            ang_vel_flu.unsqueeze(1),
+            ang_vel_frd_b.unsqueeze(1),
             self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
         ).squeeze(1)
         #ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
@@ -138,21 +138,9 @@ class ControlAction(ActionTerm):
 
 
         omega_ref = omega_ref_pwm * self.cfg.omega_max
-        #omega_real = self._motor.compute(omega_ref)
-        #everything is FRD to this point; we need to convert to FLU
-        if self.cfg.use_motor_model == True:
-           omega_real = self._motor.compute(omega_ref)
-        else:
-           omega_real = omega_ref
-
-        thrust_torque_frd = self._controller.get_thrust_and_torque_command(self.cfg.omega_max, self.cfg.thrust_coef, self.cfg.drag_coef, omega_ref_pwm)
-        thrust_flu = thrust_torque_frd[:, 0]
-        moment_frd = thrust_torque_frd[:, 1:]
-        moment_flu = torch.bmm(
-            moment_frd.unsqueeze(1),
-            self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
-        ).squeeze(1)
-        self._processed_actions = torch.cat([thrust_flu.unsqueeze(1), moment_flu], dim=1)
+        omega_real = self._motor.compute(omega_ref)
+        
+        self._processed_actions= self._allocation.compute(omega_real)  # (num_envs,4): [T, Mx, My, Mz] in FRD
 
 
 

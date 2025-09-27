@@ -64,6 +64,20 @@ def out_of_bounds(
 
     return out_of_bounds_y | out_of_bounds_z
 
+def dynamic_limits_exceeded(env: ManagerBasedRLEnv, linvel_max: float = 20.0, angvel_max: float = 11.69, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")):
+    """Terminate when the asset's linear or angular velocity exceeds specified limits."""
+
+    asset: RigidObject = env.scene[asset_cfg.name]
+
+    # Get the asset's linear and angular velocities
+    lin_vel = torch.linalg.norm(asset.data.root_lin_vel_w, dim=1)
+    ang_vel = torch.linalg.norm(asset.data.root_ang_vel_b, dim=1)
+
+    # Check if the velocities exceed the limits
+    lin_vel_exceeded = lin_vel > linvel_max
+    ang_vel_exceeded = ang_vel > angvel_max
+
+    return lin_vel_exceeded | ang_vel_exceeded
 
 
 # def time_out(

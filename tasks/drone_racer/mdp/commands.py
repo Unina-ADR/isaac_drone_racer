@@ -273,7 +273,7 @@ class GateTargetingCommandCfg(CommandTermCfg):
     record_fpv: bool = False
     """If True, the first-person view (FPV) camera is recorded during the simulation."""
 
-    gate_size: float = 1.5
+    gate_size: float = 1.3
     """Size of the gate in meters. This is used to determine if the drone has passed through the gate."""
 
     target_visualizer_cfg: VisualizationMarkersCfg = FRAME_MARKER_CFG.replace(prim_path="/Visuals/Command/goal_pose")

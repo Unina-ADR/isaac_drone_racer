@@ -14,6 +14,8 @@ import torch
 from isaaclab.assets import Articulation
 from isaaclab.managers import ActionTerm, ActionTermCfg
 from isaaclab.utils import configclass
+from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+from isaaclab.markers.config import BLUE_ARROW_X_MARKER_CFG
 import isaaclab.utils.math as utils
 
 from dynamics import Allocation,Motor
@@ -22,6 +24,7 @@ from controllers import BetaflightControllerParams, BetaflightController
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
+
 
 
 
@@ -104,7 +107,7 @@ class ControlAction(ActionTerm):
 
     @property
     def has_debug_vis_implementation(self) -> bool:
-        return False
+        return True
 
     @property
     def elapsed_time(self) -> torch.Tensor:
@@ -128,44 +131,26 @@ class ControlAction(ActionTerm):
         
         omega_real = self._motor.compute(omega_ref)
         self._processed_actions = self._allocation.compute(omega_real)
+        self._processed_actions[:,0] = self._processed_actions[:,0].clamp(0.0, self.cfg.max_thrust * self.cfg.thrust_saturation)
 
 
-        # #BETAFLIGHT PROCESSING
-        # self._controller.set_command(clamped)
-        # #ang_vel is in FLU frame, we need to convert it to FRD frame
-        # ang_vel_flu = self._robot.data.root_ang_vel_w
-        # drone_quat = self._robot.data.root_quat_w
-
-        # ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
-        # # ang_vel_frd = torch.bmm(
-        # #     ang_vel_flu.unsqueeze(1),
-        # #     self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
-        # # ).squeeze(1)
-        # ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
+        # # #BETAFLIGHT PROCESSING
+        # ang_vel_frd_b = utils.quat_rotate_inverse(self._robot.data.root_quat_w, self._robot.data.root_ang_vel_w)
+        # ang_vel_frd = torch.bmm(
+        #     ang_vel_frd_b.unsqueeze(1),
+        #     self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
+        # ).squeeze(1)
+        # #ang_vel_frd = self.flu_to_frd * utils.quat_rotate_inverse(drone_quat, ang_vel_flu)
         # ang_vel_des, omega_ref_pwm = self._controller.compute(ang_vel_frd)
 
 
         # omega_ref = omega_ref_pwm * self.cfg.omega_max
-        # #omega_real = self._motor.compute(omega_ref)
-        # #everything is FRD to this point; we need to convert to FLU
-        # if self.cfg.use_motor_model == True:
-        #    omega_real = self._motor.compute(omega_ref)
-        # else:
-        #    omega_real = omega_ref
-
-        # thrust_torque_frd = self._controller.get_thrust_and_torque_command(self.cfg.omega_max, self.cfg.thrust_coef, self.cfg.drag_coef, omega_ref_pwm)
-        # thrust_flu = thrust_torque_frd[:, 0]
-        # moment_frd = thrust_torque_frd[:, 1:]
-        # moment_flu = torch.bmm(
-        #     moment_frd.unsqueeze(1),
-        #     self.flu_to_frd.unsqueeze(0).repeat(self.num_envs, 1, 1)
-        # ).squeeze(1)
-        # self._processed_actions = torch.cat([thrust_flu.unsqueeze(1), moment_flu], dim=1)
-
-
+        # omega_real = self._motor.compute(omega_ref)
+        
+        # self._processed_actions= self._allocation.compute(omega_real)  # (num_envs,4): [T, Mx, My, Mz] in FRD
 
         #log(self._env, ["wx_des", "wy_des", "wz_des"], ang_vel_des)
-        log(self._env, ["A", "E", "T", "R"], self._raw_actions)
+        #log(self._env, ["A", "E", "T", "R"], self._raw_actions)
         log(self._env, ["thrust", "moment_x", "moment_y", "moment_z"], self._processed_actions)
         log(self._env, ["w1", "w2", "w3", "w4"], omega_real)
 
@@ -196,6 +181,71 @@ class ControlAction(ActionTerm):
         # self._robot.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids)
         self._robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
 
+    
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        if debug_vis:
+            if not hasattr(self, "force_visualizer"):
+                # usa il config freccia già fornito
+                cfg = BLUE_ARROW_X_MARKER_CFG.replace(prim_path="/Visuals/Actions/force")
+                # opzionale: modifiche al prototipo se compatibile
+                try:
+                    cfg.markers["arrow"].scale = (1.0, 0.1, 0.1)
+                except Exception:
+                    pass
+                self.force_visualizer = VisualizationMarkers(cfg)
+            self.force_visualizer.set_visibility(True)
+        else:
+            if hasattr(self, "force_visualizer"):
+                self.force_visualizer.set_visibility(False)
+
+    def _debug_vis_callback(self, event):
+        if not self._robot.is_initialized:
+            return
+
+        # posizione del corpo (in world)
+        pos = self._robot.data.root_pos_w  # (num_envs, 3)
+
+        # forza applicata in body frame
+        force_b = self._thrust[:, 0, :]  # (num_envs,3)
+
+        # trasformala in world
+        force_w = utils.quat_rotate(self._robot.data.root_quat_w, force_b)
+
+        # magnitudine e direzione
+        lengths = torch.norm(force_w, dim=1)  # (num_envs,)
+        eps = 1e-8
+        dirs = force_w / lengths.unsqueeze(1).clamp(min=eps)
+
+        # costruisci quaternioni che ruotano +X verso dirs
+        x_axis = torch.tensor([1.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
+        dots = (x_axis * dirs).sum(dim=1).clamp(-1.0, 1.0)
+        angles = torch.acos(dots)
+        axes = torch.cross(x_axis, dirs)
+        axes_norm = axes / axes.norm(dim=1, keepdim=True).clamp(min=eps)
+        quats = utils.quat_from_angle_axis(angles, axes_norm)
+        small_mask = lengths < 1e-6
+        if small_mask.any():
+            quats[small_mask] = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device)
+
+        # scale per le frecce: componi (lunghezza, spessore_y, spessore_z)
+        length_scale = 0.1
+        scales = torch.stack([
+            lengths * length_scale,
+            torch.ones_like(lengths) * 0.1,
+            torch.ones_like(lengths) * 0.1
+        ], dim=1)
+
+        # converti su CPU / numpy prima di visualizzare
+        pos_np = pos.cpu().numpy()
+        quats_np = quats.cpu().numpy()
+        scales_np = scales.cpu().numpy()
+
+        self.force_visualizer.visualize(
+            translations=pos_np,
+            orientations=quats_np,
+            scales=scales_np
+        )
+
 
 @configclass
 class ControlActionCfg(ActionTermCfg):
@@ -223,6 +273,10 @@ class ControlActionCfg(ActionTermCfg):
     """Maximum angular velocity of the drone motors in rad/s.
     Calculated with 2100KV motor, with 6S LiPo battery with 3.8V per cell.
     2100 * 6 * 4.2 = 47,780 RPM ~= 5541 rad/s."""
+    max_thrust: float = omega_max**2 * thrust_coef * 4
+    """Maximum collective thrust in Newtons."""
+    thrust_saturation: float = 0.5
+    """Saturation limit for collective thrust as a fraction of maximum thrust."""
     taus: list[float] = (0.0001, 0.0001, 0.0001, 0.0001)
     """Time constants for each motor."""
     init: list[float] = (100.0, 100.0, 100.0, 100.0)
@@ -231,5 +285,5 @@ class ControlActionCfg(ActionTermCfg):
     """Maximum rate of change of angular velocities for each motor in rad/s^2."""
     min_rate: list[float] = (-50000.0, -50000.0, -50000.0, -50000.0)
     """Minimum rate of change of angular velocities for each motor in rad/s^2."""
-    use_motor_model: bool = False
+    use_motor_model: bool = True
     """Flag to determine if motor delay is bypassed."""

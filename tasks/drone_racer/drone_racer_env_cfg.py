@@ -19,11 +19,15 @@ from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg, ImuCfg, TiledCameraCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.noise import NoiseCfg, GaussianNoiseCfg, UniformNoiseCfg
 
 from . import mdp
 from .track_generator import generate_track
 
 from assets.a2r_drone import A2R_DRONE  # isort:skip
+
+def deg2rad(deg):
+    return deg * torch.pi / 180.0
 
 
 @configclass
@@ -38,13 +42,12 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
     # track
     track: RigidObjectCollectionCfg = generate_track(
         track_config={
-            "1": {"pos": (0.0, 0.0, 1.5), "yaw": 0.0},
-            "2": {"pos": (10.0, 5.0, 1.5), "yaw": 0.0},
-            "3": {"pos": (10.0, -5.0, 1.5), "yaw": (5 / 4) * torch.pi},
-            "4": {"pos": (-5.0, -5.0, 4.0), "yaw": torch.pi},
-            "5": {"pos": (-5.0, -5.0, 1.5), "yaw": 0.0},
-            "6": {"pos": (5.0, 0.0, 1.5), "yaw": (1 / 2) * torch.pi},
-            "7": {"pos": (0.0, 5.0, 1.5), "yaw": torch.pi},
+            "1": {"pos": (14.0,34.0,1.45), "yaw":   deg2rad(0.0)},
+            "2": {"pos": (20.0,30.0,1.45), "yaw":  -45.0 * torch.pi / 180.0},
+            "3": {"pos": (21.0,22.0,1.45), "yaw":  -60 * torch.pi / 180.0},
+            "4": {"pos": (21.0,14.0,1.45), "yaw":   -120.0 * torch.pi / 180.0},
+            "5": {"pos": (19.0,6.0,1.45), "yaw": 170.0 * torch.pi / 180.0},
+            "6": {"pos": (14.0,14.0,1.45), "yaw": 180.0 * torch.pi / 180.0},
         }
         # track_config={
         #     "1": {"pos": (1.0, 0.0, 1.5), "yaw": 0.0},
@@ -83,7 +86,8 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    control_action: mdp.ControlActionCfg = mdp.ControlActionCfg(use_motor_model=False)
+    control_action: mdp.ControlActionCfg = mdp.ControlActionCfg(use_motor_model=False, debug_vis = True)
+
 
 
 @configclass
@@ -94,16 +98,22 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0})
-        attitude = ObsTerm(func=mdp.root_quat_w)
-        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 20.0})
-        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 15.0})
+        position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0}, 
+                           noise=GaussianNoiseCfg(std=0.05, mean = 0.0), scale = 1/30.0
+        )
+        attitude = ObsTerm(func=mdp.root_quat_w,
+                           noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
+        )
+        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/10.0
+        )
+        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.69}, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/11.69
+        )
         #target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 30.0})
         actions = ObsTerm(func=mdp.action_obs)
-        waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})
-
+        waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})#, noise=GaussianNoiseCfg(std=0.05, mean = 0.0)
+        #)
         def __post_init__(self) -> None:
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = True
 
     @configclass
@@ -111,12 +121,12 @@ class ObservationsCfg:
         """Observations for critic group."""
 
         image = ObsTerm(func=mdp.image)
-        imu_ang_vel = ObsTerm(func=mdp.imu_ang_vel)
-        imu_lin_acc = ObsTerm(func=mdp.imu_lin_acc)
-        imu_att = ObsTerm(func=mdp.imu_orientation)
+        imu_ang_vel = ObsTerm(func=mdp.imu_ang_vel, noise = GaussianNoiseCfg(std=0.01, mean = 0.0))
+        imu_lin_acc = ObsTerm(func=mdp.imu_lin_acc, noise = GaussianNoiseCfg(std=0.01, mean = 0.0))
+        imu_att = ObsTerm(func=mdp.imu_orientation, noise = GaussianNoiseCfg(std=0.01, mean = 0.0))
 
         def __post_init__(self) -> None:
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = False
 
     # observation groups
@@ -137,7 +147,7 @@ class EventCfg:
             "pose_range": {
                 "x": (-2.5, -1.5),
                 "y": (-0.5, 0.5),
-                "z": (1.5, 1.0),
+                "z": (1.5, 0.5),
                 "roll": (-0.0, 0.0),
                 "pitch": (-0.0, 0.0),
                 "yaw": (0.0, 0.0), 
@@ -150,6 +160,18 @@ class EventCfg:
                 "pitch": (0.0, 0.0),
                 "yaw": (0.0, 0.0),
             },
+        },
+    )
+
+    randomize_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=["body"]),
+            "mass_distribution_params": (0.95, 1.05),  # uniform distribution,
+            "operation": "scale",
+            "distribution": "uniform",
+            "recompute_inertia": True,
         },
     )
 
@@ -205,15 +227,16 @@ class RewardsCfg:
     # lin_vel_to_next_gate= RewTerm(
     #     func=mdp.lin_vel_to_next_gate, weight=-0.01, params={"command_name": "target"}
     # )
-    time_reward = RewTerm(
-        func=mdp.time_reward, weight=-0.01, params={}
-    )
+    # time_reward = RewTerm(
+    #     func=mdp.time_reward, weight=-0.01, params={}
+    # )
     guidance_reward = RewTerm(
         func=mdp.guidance_reward, weight=-1.0, params={"command_name": "target"}
     )
     # pitch_reward = RewTerm(
     #     func=mdp.pitch_reward, weight=-0.1, params={}
     # )
+
 
 @configclass
 class TerminationsCfg:
@@ -224,6 +247,8 @@ class TerminationsCfg:
     collision = DoneTerm(
         func=mdp.illegal_contact, params={"sensor_cfg": SceneEntityCfg("collision_sensor"), "threshold": 0.0001}
     )
+    dynamic_limits_exceeded = DoneTerm(func=mdp.dynamic_limits_exceeded, params={"linvel_max": 10.0, "angvel_max": 11.69})
+
     # out_of_bounds = DoneTerm(
     #     func=mdp.out_of_bounds,
     #     params={"bounds": (6.0, 8.0), "asset_cfg": SceneEntityCfg("robot")} #y_max, z_max 
@@ -288,12 +313,14 @@ class DroneRacerEnvCfg_PLAY(ManagerBasedRLEnvCfg):
 
         # MDP settings
         self.observations.critic = None
+        self.events.reset_base = None
+        self.commands.target.randomise_start = True
 
         # Disable push robot events
         self.events.push_robot = None
 
         # Enable recording fpv footage
-        # self.commands.target.record_fpv = True
+        #self.commands.target.record_fpv = True
 
         # general settings
         self.decimation = 4

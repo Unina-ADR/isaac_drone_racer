@@ -58,10 +58,10 @@ class BetaflightControllerParams:
     #     default_factory=lambda: [0.097143, 0.097143, -0.097143, -0.097143]
     # )
     rotors_x: List[float] = field(
-        default_factory=lambda: [-0.122, 0.14825, -0.122, -0.14825]
+        default_factory=lambda: [-0.122, 0.14825, -0.122, 0.14825]
     )
     rotors_y: List[float] = field(
-        default_factory=lambda: [0.1343, 0.10474, -0.1343, -0.10474]
+        default_factory=lambda: [-0.1343, -0.10474, 0.1343, 0.10474]
     )
     rotors_dir: List[int] = field(default_factory=lambda: [1, -1, -1, 1])
     pid_sum_mixer_scale: float = 1000.0

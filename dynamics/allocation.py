@@ -36,11 +36,11 @@ class Allocation:
         # )
         A = torch.tensor(
             [   
-                #urdf order: m4 m3 m2 m1 
+                #urdf order: 
                 [1.0,                1.0,        1.0,         1.0],
-                [-0.1343,       -0.10474,    0.10474,      0.1343],
-                [-0.122,         0.14825,    0.14825,      -0.122],
-                [-drag_coeff, drag_coeff, -drag_coeff, drag_coeff],
+                [-0.1343,       -0.10474,     0.1343,     0.10474],
+                [-0.122,         0.14825,     -0.122,     0.14825],
+                [drag_coeff, -drag_coeff, -drag_coeff, drag_coeff],
             ],
             dtype=dtype,
             device=device,

@@ -30,14 +30,13 @@ def root_lin_vel_b(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEnti
     return lin_vel
 
 
-def root_lin_vel_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), lin_vel_max: float = 20.0) -> torch.Tensor:
+def root_lin_vel_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Asset root linear velocity in the world frame."""
     asset: RigidObject = env.scene[asset_cfg.name]
     lin_vel = asset.data.root_lin_vel_w
-    scaled_vel = lin_vel / lin_vel_max  # Scale to [-1, 1]
     log(env, ["vx", "vy", "vz"], lin_vel)
     #return scaled_vel.clamp_(min=-1.0, max=1.0)  # Clamp to avoid NaN issues in training
-    return scaled_vel
+    return lin_vel
 
 def root_ang_vel_b(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), ang_vel_max: float = 11.0) -> torch.Tensor:
     """Asset root angular velocity in the body frame."""
@@ -46,7 +45,7 @@ def root_ang_vel_b(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEnti
     scaled_ang_vel = ang_vel / ang_vel_max  # Scale to [-1, 1]
     log(env, ["wx", "wy", "wz"], ang_vel)
     #return scaled_ang_vel.clamp_(min=-1.0, max=1.0)
-    return scaled_ang_vel
+    return ang_vel
 
 def root_quat_w(
     env: ManagerBasedRLEnv, make_quat_unique: bool = False, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
@@ -79,7 +78,7 @@ def root_pos_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCf
     log(env, ["px", "py", "pz"], position)
     scaled_position = position / pos_max  # Scale to [-1, 1]
     #return position.clamp_(min=-1.0, max=1.0)
-    return scaled_position
+    return position
 
 def root_pose_g(
     env: ManagerBasedRLEnv,
@@ -120,7 +119,7 @@ def action_obs(env:ManagerBasedRLEnv) -> torch.Tensor:
     """Last raw action taken by the agent."""
     action_term = env.action_manager.get_term("control_action")
     action = action_term.raw_actions_obs  # [num_envs, 4]
-
+    #action = action_term.processed_actions  # [num_envs, 4]
     return action
 
 # def next_gate_pose_g(
@@ -270,6 +269,10 @@ def waypoint_obs_jit(
     next_gate_quat_expand = next_gate_quat.unsqueeze(1).expand(-1, 4, -1).reshape(-1, 4)  # [num_envs*4, 4]
     gate_corners_w_flat = math_utils.quat_apply(next_gate_quat_expand, relative_gate_corners_flat)  # [num_envs*4, 3]
     gate_corners_w = gate_corners_w_flat.reshape(num_envs, 4, 3) + next_gate_pos.unsqueeze(1)  # [num_envs, 4, 3]
+
+    noise_std = 0.05 #metri
+
+    gate_corners_w += torch.randn_like(gate_corners_w) * noise_std
 
     # Gate x axis in world frame
     gate_x_axis = math_utils.quat_apply(

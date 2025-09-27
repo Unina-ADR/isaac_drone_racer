@@ -19,6 +19,7 @@ from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg, ImuCfg, TiledCameraCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.noise import NoiseCfg, GaussianNoiseCfg, UniformNoiseCfg
 
 from . import mdp
 from .track_generator import generate_track
@@ -38,10 +39,10 @@ class DroneBetaflightSceneCfg(InteractiveSceneCfg):
     # track
     track: RigidObjectCollectionCfg = generate_track(
         track_config={
-            "1": {"pos": (5.0,  3.0, 1.5), "yaw": 0.0},
-            "2": {"pos": (10.0, 5.0, 1.5), "yaw": (5 / 4) * torch.pi},
-            "3": {"pos": (6.0, -3.0, 1.5), "yaw": (1 / 6) * torch.pi},
-            "4": {"pos": (2.0, -6.0, 1.5), "yaw": (1/2) * torch.pi},
+            "1": {"pos": (2.0,  1.0, 1.5), "yaw": 0.0},
+            "2": {"pos": (6.0, -3.0, 1.5), "yaw": (1 / 2) * torch.pi},
+            "3": {"pos": (2.0, -5.0, 1.5), "yaw": torch.pi},
+            "4": {"pos": (-4.0, -3.0, 1.5), "yaw": (3/2) * torch.pi},
         }
         # track_config={
         #     "1": {"pos": (1.0, 0.0, 1.5), "yaw": 0.0},
@@ -59,7 +60,7 @@ class DroneBetaflightSceneCfg(InteractiveSceneCfg):
 
     # sensors
     collision_sensor: ContactSensorCfg = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", debug_vis=True)
-    imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body", debug_vis=False)
+    imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body",update_period=0.004, debug_vis=False)
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/body/camera",
         offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
@@ -76,11 +77,13 @@ class DroneBetaflightSceneCfg(InteractiveSceneCfg):
     )
 
 
+
+
 @configclass
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    control_action: mdp.ControlActionCfg = mdp.ControlActionCfg(use_motor_model=False)
+    control_action: mdp.ControlActionCfg = mdp.ControlActionCfg(use_motor_model=True)
 
 
 @configclass
@@ -91,16 +94,23 @@ class ObservationsCfg:
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
 
-        position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0})
-        attitude = ObsTerm(func=mdp.root_quat_w)
-        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 5.0})
-        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.69})
+        position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0}, 
+                           noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
+        )
+        attitude = ObsTerm(func=mdp.root_quat_w,
+                           noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
+        )
+        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, params={"lin_vel_max": 5.0}, noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
+        )
+        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.69}, noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
+        )
         #target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 30.0})
         actions = ObsTerm(func=mdp.action_obs)
-        waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})
+        waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"}, noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
+        )
 
         def __post_init__(self) -> None:
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = True
 
     @configclass
@@ -108,17 +118,18 @@ class ObservationsCfg:
         """Observations for critic group."""
 
         image = ObsTerm(func=mdp.image)
-        imu_ang_vel = ObsTerm(func=mdp.imu_ang_vel)
-        imu_lin_acc = ObsTerm(func=mdp.imu_lin_acc)
-        imu_att = ObsTerm(func=mdp.imu_orientation)
+        imu_ang_vel = ObsTerm(func=mdp.imu_ang_vel, noise = GaussianNoiseCfg(std=0.02))
+        imu_lin_acc = ObsTerm(func=mdp.imu_lin_acc, noise = GaussianNoiseCfg(std=0.05))
+        imu_att = ObsTerm(func=mdp.imu_orientation, noise = GaussianNoiseCfg(std=0.003))
 
         def __post_init__(self) -> None:
-            self.enable_corruption = False
+            self.enable_corruption = True
             self.concatenate_terms = False
 
     # observation groups
     policy: PolicyCfg = PolicyCfg()
     critic: CriticCfg = CriticCfg()
+
 
 
 @configclass
@@ -149,6 +160,19 @@ class EventCfg:
             },
         },
     )
+
+    randomize_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=["body"]),
+            "mass_distribution_params": (0.9, 1.1),  # uniform distribution,
+            "operation": "scale",
+            "distribution": "uniform",
+            "recompute_inertia": True,
+        },
+    )
+    #randomize dynamics parameters at the start of each episode
 
     # intervals
     # push_robot = EventTerm(
