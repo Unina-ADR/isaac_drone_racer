@@ -59,7 +59,7 @@ x_axis = torch.tensor([[1.0, 0.0, 0.0]])
 
 # Camera rotation: 50 degrees around y-axis (in radians)
 cam_roll = torch.tensor([[0.0]])
-cam_pitch = torch.tensor([[-0.87266]])  # -50 degrees in radians
+cam_pitch = torch.tensor([[-0,523599266]])  # -50 degrees in radians
 cam_yaw = torch.tensor([[0.0]])
 
 

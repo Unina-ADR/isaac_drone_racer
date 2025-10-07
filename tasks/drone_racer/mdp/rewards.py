@@ -159,6 +159,17 @@ def yaw_vel(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("
     # Square the yaw component and sum it across the batch
     return torch.abs(ang_vel_yaw)
 
+# def turning_reward(env:ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+#     """Reward for turning the drone."""
+#     # extract the used quantities (to enable type-hinting)
+#     asset: RigidObject = env.scene[asset_cfg.name]
+#     attitude= asset.data.root_quat_w
+#     yaw = math_utils.yaw_quat(attitude) 
+
+
+#     return torch.abs(ang_vel_yaw)
+
+
 def action_reward(
     env: ManagerBasedRLEnv,
     #action: ControlAction | None = None,

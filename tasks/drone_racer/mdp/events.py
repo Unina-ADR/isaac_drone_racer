@@ -22,6 +22,7 @@ def reset_after_prev_gate(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
     gate_pose: torch.Tensor,
+    gate_orientation: torch.Tensor,
     pose_range: dict[str, tuple[float, float]],
     velocity_range: dict[str, tuple[float, float]],
     asset_cfg_name: str = "robot",
@@ -48,6 +49,7 @@ def reset_after_prev_gate(
     positions = root_states[:, 0:3] + env.scene.env_origins[env_ids] + pos_after_prev_gate + rand_samples[:, 0:3]
     orientations_delta = math_utils.quat_from_euler_xyz(rand_samples[:, 3], rand_samples[:, 4], rand_samples[:, 5])
     orientations = math_utils.quat_mul(root_states[:, 3:7], orientations_delta)
+    orientations = math_utils.quat_mul(gate_quat, orientations)
 
     # velocities
     range_list = [velocity_range.get(key, (0.0, 0.0)) for key in ["x", "y", "z", "roll", "pitch", "yaw"]]

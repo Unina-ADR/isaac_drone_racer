@@ -16,11 +16,11 @@ from . import agents
 ##
 
 gym.register(
-    id="Isaac-Drone-Lander-v0",
-    entry_point=f"{__name__}.lander_env:LanderEnv",
+    id="Hover-v0",
+    entry_point=f"{__name__}.hover_env:HoverEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.lander_env:LanderEnvCfg",
+        "env_cfg_entry_point": f"{__name__}.hover_env:HoverEnvCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
     },
 )

@@ -71,7 +71,14 @@ class TestSceneCfg(InteractiveSceneCfg):
 
     # articulation
     robot: ArticulationCfg = A2R_DRONE.replace(prim_path="{ENV_REGEX_NS}/Robot")
-
+    tiled_camera: TiledCameraCfg = TiledCameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/body/camera",
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(-0.3535533905932737, 0.3535533905932737, -0.616123724356957945, 0.6123724356957945), convention="ros"),
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(),
+        width=640,
+        height=480,
+    )
     # tiled_camera: TiledCameraCfg = TiledCameraCfg(
     #     prim_path="{ENV_REGEX_NS}/Robot/body/camera",
     #     #offset=TiledCameraCfg.OffsetCfg(pos=(0.14, 0.0, 0.05), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
@@ -120,69 +127,69 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene, con
         # Simple stick modulation example (optional yaw dither)
         # small yaw excitation to see response
         ##command[:, 3] = 0.1 * torch.sin(torch.tensor(count * sim_dt, device=device))
-        controller.set_command(command)
+        #controller.set_command(command)
 
         # Current body angular velocity (rad/s) from sim
-        ang_vel = robot.data.root_ang_vel_b  # (num_envs,3)
+        #ang_vel = robot.data.root_ang_vel_b  # (num_envs,3)
 
-        with torch.no_grad():
-            des_ang_vel, motor_outputs = controller.compute(ang_vel)
-            omega = motor_outputs * args_cli.omega_max  # (num_envs,4)
+        #with torch.no_grad():
+            #des_ang_vel, motor_outputs = controller.compute(ang_vel)
+            #omega = motor_outputs * args_cli.omega_max  # (num_envs,4)
             # still compute joint velocities if needed for debugging (not applied)
             #joint_vel_target = omega * rotor_dir
             # Always compute thrust/torque for application
-            thrust_torque_frd = controller.get_thrust_and_torque_command(
-                omega_max=args_cli.omega_max,
-                thrust_coeff=args_cli.thrust_coeff,
-                drag_coeff=args_cli.drag_coeff,
-                u=motor_outputs,
-            )  # (num_envs,4): [T, Mx, My, Mz] in FRD
-            # Split
-            T_frd = thrust_torque_frd[:, 0]
-            Mx_frd = thrust_torque_frd[:, 1]
-            My_frd = thrust_torque_frd[:, 2]
-            Mz_frd = thrust_torque_frd[:, 3]
-            # Convert FRD -> FLU (x same, y negated, z negated). For thrust along +z_up we assume T is magnitude upward.
-            # Force only along body +z (FLU) direction.
-            force_flu = torch.zeros(num_envs, 3, device=device)
-            force_flu[:, 2] = T_frd * args_cli.force_scale  # upward thrust
-            # Moments: (Mx, My, Mz)_FLU = (Mx, -My, -Mz)_FRD
-            moment_flu = torch.stack([
-                Mx_frd * args_cli.force_scale,
-                -My_frd * args_cli.force_scale,
-                -Mz_frd * args_cli.force_scale,
-            ], dim=1)
-            # Reshape to (num_envs,1,3) as expected by API
-            force_flu = force_flu.unsqueeze(1)
-            moment_flu = moment_flu.unsqueeze(1)
-            thrust_torque = thrust_torque_frd if args_cli.log_thrust_torque else None
+            # thrust_torque_frd = controller.get_thrust_and_torque_command(
+            #     omega_max=args_cli.omega_max,
+            #     thrust_coeff=args_cli.thrust_coeff,
+            #     drag_coeff=args_cli.drag_coeff,
+            #     u=motor_outputs,
+            # )  # (num_envs,4): [T, Mx, My, Mz] in FRD
+            # # Split
+            # T_frd = thrust_torque_frd[:, 0]
+            # Mx_frd = thrust_torque_frd[:, 1]
+            # My_frd = thrust_torque_frd[:, 2]
+            # Mz_frd = thrust_torque_frd[:, 3]
+            # # Convert FRD -> FLU (x same, y negated, z negated). For thrust along +z_up we assume T is magnitude upward.
+            # # Force only along body +z (FLU) direction.
+            # force_flu = torch.zeros(num_envs, 3, device=device)
+            # force_flu[:, 2] = T_frd * args_cli.force_scale  # upward thrust
+            # # Moments: (Mx, My, Mz)_FLU = (Mx, -My, -Mz)_FRD
+            # moment_flu = torch.stack([
+            #     Mx_frd * args_cli.force_scale,
+            #     -My_frd * args_cli.force_scale,
+            #     -Mz_frd * args_cli.force_scale,
+            # ], dim=1)
+            # # Reshape to (num_envs,1,3) as expected by API
+            # force_flu = force_flu.unsqueeze(1)
+            # moment_flu = moment_flu.unsqueeze(1)
+            # thrust_torque = thrust_torque_frd if args_cli.log_thrust_torque else None
 
         # Apply wrench to body
-        try:
-            robot.set_external_force_and_torque(force_flu, moment_flu, body_ids=body_id)
-        except Exception as e:
-            if count == 0:
-                print(f"[WARN] Failed to apply external wrench: {e}")
+        # try:
+        #     robot.set_external_force_and_torque(force_flu, moment_flu, body_ids=body_id)
+        # except Exception as e:
+        #     if count == 0:
+        #         print(f"[WARN] Failed to apply external wrench: {e}")
 
         # Write data & step sim
         scene.write_data_to_sim()
         sim.step()
         scene.update(sim_dt)
 
-        if count % args_cli.log_interval == 0:
-            mean_u = motor_outputs.mean(dim=0).tolist()
-            mean_omega = omega.mean(dim=0).tolist()
-            des_rates = des_ang_vel[0].tolist()
-            cur_rates = ang_vel[0].tolist()
-            log_msg = (
-                f"[LOG] step={count} cmd(A,E,T,R)={command[0].tolist()} des_rate(rad/s)={['%.2f'%r for r in des_rates]} "
-                f"cur_rate={['%.2f'%r for r in cur_rates]} u={['%.2f'%x for x in mean_u]} omega(avg)={['%.0f'%w for w in mean_omega]}"
-            )
-            if args_cli.log_thrust_torque and thrust_torque is not None:
-                tt0 = thrust_torque[0].tolist()
-                log_msg += f" FRD[T,Mx,My,Mz]={['%.4e'%x for x in tt0]}"
-                log_msg += f" AppliedForceZ={force_flu[0,0,2]:.4e} AppliedMoment={['%.4e'%m for m in moment_flu[0,0].tolist()]}"
-            print(log_msg)
+        # if count % args_cli.log_interval == 0:
+        #     mean_u = motor_outputs.mean(dim=0).tolist()
+        #     mean_omega = omega.mean(dim=0).tolist()
+        #     des_rates = des_ang_vel[0].tolist()
+        #     cur_rates = ang_vel[0].tolist()
+        #     log_msg = (
+        #         f"[LOG] step={count} cmd(A,E,T,R)={command[0].tolist()} des_rate(rad/s)={['%.2f'%r for r in des_rates]} "
+        #         f"cur_rate={['%.2f'%r for r in cur_rates]} u={['%.2f'%x for x in mean_u]} omega(avg)={['%.0f'%w for w in mean_omega]}"
+        #     )
+        #     if args_cli.log_thrust_torque and thrust_torque is not None:
+        #         tt0 = thrust_torque[0].tolist()
+        #         log_msg += f" FRD[T,Mx,My,Mz]={['%.4e'%x for x in tt0]}"
+        #         log_msg += f" AppliedForceZ={force_flu[0,0,2]:.4e} AppliedMoment={['%.4e'%m for m in moment_flu[0,0].tolist()]}"
+        #     print(log_msg)
 
         count += 1
 

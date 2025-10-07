@@ -158,11 +158,12 @@ class GateTargetingCommand(CommandTerm):
             gate_positions = self.track.data.object_com_pos_w[self.env_ids, gate_indices]
             gate_orientations = self.track.data.object_quat_w[self.env_ids, gate_indices]
             gate_w = torch.cat([gate_positions, gate_orientations], dim=1)
-
+            gate_rpy = math_utils.euler_xyz_from_quat(gate_orientations)
             reset_after_prev_gate(
                 env=self._env,
                 env_ids=env_ids,
                 gate_pose=gate_w,
+                gate_orientation=gate_orientations,
                 pose_range={
                     "x": (-0.5, 0.5),
                     "y": (-0.5, 0.5),
@@ -273,7 +274,7 @@ class GateTargetingCommandCfg(CommandTermCfg):
     record_fpv: bool = False
     """If True, the first-person view (FPV) camera is recorded during the simulation."""
 
-    gate_size: float = 1.3
+    gate_size: float = 1.4
     """Size of the gate in meters. This is used to determine if the drone has passed through the gate."""
 
     target_visualizer_cfg: VisualizationMarkersCfg = FRAME_MARKER_CFG.replace(prim_path="/Visuals/Command/goal_pose")

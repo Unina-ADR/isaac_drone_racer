@@ -20,7 +20,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import ContactSensorCfg, ImuCfg, TiledCameraCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import NoiseCfg, GaussianNoiseCfg, UniformNoiseCfg
-
+import isaaclab.utils.math as math_utils
 from . import mdp
 from .track_generator import generate_track
 
@@ -41,23 +41,20 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
 
     # track
     track: RigidObjectCollectionCfg = generate_track(
-        track_config={
-            "1": {"pos": (14.0,34.0,1.45), "yaw":   deg2rad(0.0)},
-            "2": {"pos": (20.0,30.0,1.45), "yaw":  -45.0 * torch.pi / 180.0},
-            "3": {"pos": (21.0,22.0,1.45), "yaw":  -60 * torch.pi / 180.0},
-            "4": {"pos": (21.0,14.0,1.45), "yaw":   -120.0 * torch.pi / 180.0},
-            "5": {"pos": (19.0,6.0,1.45), "yaw": 170.0 * torch.pi / 180.0},
-            "6": {"pos": (14.0,14.0,1.45), "yaw": 180.0 * torch.pi / 180.0},
+        track_config = {
+            "1":  {"pos": (12.5, 2.0, 1.45), "yaw":         deg2rad(180.0)},
+            "2":  {"pos": (6.5,  6.0, 1.45), "yaw":  deg2rad(180.0 - 45.0)},
+            "3":  {"pos": (5.5, 14.0, 1.45), "yaw":         deg2rad(150.0)},
+            "4":  {"pos": (2.5, 24.0, 1.45), "yaw":          deg2rad(90.0)},
+            "5":  {"pos": (7.5, 30.0, 1.45), "yaw":         deg2rad(-10.0)},
+            "6":  {"pos": (12.2,22.0, 1.45), "yaw":                    0.0},
+            "7":  {"pos": (17.5, 30, 4.15),  "yaw":          deg2rad(80.0)},
+            "8":  {"pos": (17.5, 30, 1.45),  "yaw":         deg2rad(260.0)}, #7, 8 splits
+            "9":  {"pos": (18.5, 22.0, 1.45),"yaw":         deg2rad(-80.0)},
+            "10": {"pos": (20.5, 14.0, 1.45),"yaw":        deg2rad(-100.0)},
+            "11": {"pos": (18.5, 6.0, 4.15), "yaw":    deg2rad(180 + 45.0)},
+            "12": {"pos": (18.5, 6.0, 1.45), "yaw":    deg2rad(180 + 45.0)}, #11, 12 corkscrew
         }
-        # track_config={
-        #     "1": {"pos": (1.0, 0.0, 1.5), "yaw": 0.0},
-        #     "2": {"pos": (6.0, 2.5, 1.5), "yaw": 0.0},
-        #     "3": {"pos": (11.0, -2.5, 1.5), "yaw": 0.0},
-        #     "4": {"pos": (16.0, 2.5, 1.5), "yaw": 0.0},
-        #     "5": {"pos": (21.0, -2.5, 1.5), "yaw": 0.0},
-        #     "6": {"pos": (26.0, 2.5, 1.5), "yaw": 0.0},
-        #     "7": {"pos": (31.0, -2.5, 1.5), "yaw": 0.0},
-        # }
     )
 
     # robot
@@ -68,7 +65,7 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
     imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body", debug_vis=False)
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(0.0, 0.0, -0.86603, 0.5)), #isaac quat = (w x y z)
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(),
         width=640,
@@ -104,14 +101,15 @@ class ObservationsCfg:
         attitude = ObsTerm(func=mdp.root_quat_w,
                            noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
         )
-        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/10.0
+        lin_vel = ObsTerm(func=mdp.root_lin_vel_b, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/5.0
         )
         ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.69}, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/11.69
         )
-        #target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 30.0})
+        target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 30.0})
         actions = ObsTerm(func=mdp.action_obs)
         waypoint = ObsTerm(func=mdp.waypoint_obs, params={"command_name": "target"})#, noise=GaussianNoiseCfg(std=0.05, mean = 0.0)
         #)
+
         def __post_init__(self) -> None:
             self.enable_corruption = True
             self.concatenate_terms = True
@@ -210,13 +208,11 @@ class RewardsCfg:
     
     terminating = RewTerm(func=mdp.is_terminated, weight=-500.0)
     
-    #ang_vel_l2 = RewTerm(func=mdp.ang_vel_l2, weight=-0.0001)
-    #yaw_vel = RewTerm(func=mdp.yaw_vel, weight=-0.001)
     progress = RewTerm(func=mdp.progress, weight=30.0, params={"command_name": "target"})
     
     gate_passed = RewTerm(func=mdp.gate_passed, weight=400.0, params={"command_name": "target"})
     
-    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=0.10, params={"command_name": "target", "std": -10.0})
+    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=0.20, params={"command_name": "target", "std": -10.0})
     
     action_reward = RewTerm(func=mdp.action_reward, weight=1, params={"weight_omega": -0.0002, "weight_rate": -0.0001})
     
@@ -233,9 +229,9 @@ class RewardsCfg:
     guidance_reward = RewTerm(
         func=mdp.guidance_reward, weight=-1.0, params={"command_name": "target"}
     )
-    # pitch_reward = RewTerm(
-    #     func=mdp.pitch_reward, weight=-0.1, params={}
-    # )
+
+    #TO DO: Add a reward to encourage using yaw to turn towards next gate
+    
 
 
 @configclass
@@ -247,7 +243,8 @@ class TerminationsCfg:
     collision = DoneTerm(
         func=mdp.illegal_contact, params={"sensor_cfg": SceneEntityCfg("collision_sensor"), "threshold": 0.0001}
     )
-    dynamic_limits_exceeded = DoneTerm(func=mdp.dynamic_limits_exceeded, params={"linvel_max": 10.0, "angvel_max": 11.69})
+    dynamic_limits_exceeded = DoneTerm(func=mdp.dynamic_limits_exceeded, params={"linvel_max": 5.0, "angvel_max": 11.69})
+    walls = DoneTerm(func=mdp.walls, params={"min_x": 0.0, "min_y": 0.0, "max_x": 25.0, "max_y": 35.0})
 
     # out_of_bounds = DoneTerm(
     #     func=mdp.out_of_bounds,
@@ -313,14 +310,25 @@ class DroneRacerEnvCfg_PLAY(ManagerBasedRLEnvCfg):
 
         # MDP settings
         self.observations.critic = None
-        self.events.reset_base = None
-        self.commands.target.randomise_start = True
+        #self.events.reset_base = None
+        #self.commands.target.randomise_start = None
+
+        
 
         # Disable push robot events
         self.events.push_robot = None
 
         # Enable recording fpv footage
         #self.commands.target.record_fpv = True
+
+        yaw =torch.tensor(deg2rad(180.0))
+        roll= torch.tensor(deg2rad(0.0))
+        pitch = torch.tensor(deg2rad(0.0))
+
+        self.scene.robot.init_state.pos = (18.5, 2.0, 0.2)   # 5m high
+        self.scene.robot.init_state.rot = math_utils.quat_from_euler_xyz(roll,pitch,yaw)
+        self.scene.robot.init_state.lin_vel = (0.0, 0.0, 0.0)
+        self.scene.robot.init_state.ang_vel = (0.0, 0.0, 0.0)
 
         # general settings
         self.decimation = 4

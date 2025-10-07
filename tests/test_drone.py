@@ -52,14 +52,14 @@ class TestSceneCfg(InteractiveSceneCfg):
         prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
     )
     robot: ArticulationCfg = A2R_DRONE.replace(prim_path="{ENV_REGEX_NS}/Robot")
-    # tiled_camera: TiledCameraCfg = TiledCameraCfg(
-    #     prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-    #     offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
-    #     data_types=["rgb"],
-    #     spawn=sim_utils.PinholeCameraCfg(),
-    #     width=640,
-    #     height=480,
-    # )
+    tiled_camera: TiledCameraCfg = TiledCameraCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/body/camera",
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(-0.3535533905932737, 0.3535533905932737, -0.616123724356957945, 0.6123724356957945), convention="ros"),
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg(),
+        width=640,
+        height=480,
+    )
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):

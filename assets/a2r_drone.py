@@ -32,7 +32,7 @@ A2R_DRONE = ArticulationCfg(
         copy_from_source=False,
     ),
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.1),
+        pos=(0.0, 0.0, 0.05),
         joint_pos={
             ".*": 0.0,
         },

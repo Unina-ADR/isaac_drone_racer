@@ -80,6 +80,16 @@ def dynamic_limits_exceeded(env: ManagerBasedRLEnv, linvel_max: float = 20.0, an
     return lin_vel_exceeded | ang_vel_exceeded
 
 
+def walls(env: MangerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"), min_x: float = 0.0, min_y: float = 0.0, max_x: float= 25.0, max_y: float = 35.0) -> torch.Tensor:
+    """Terminate when the asset collides with walls."""
+    asset: RigidObject = env.scene[asset_cfg.name]
+    # Assuming the asset has a method to check for wall collisions
+    asset_x = asset.data.root_pos_w[:, 0]
+    asset_y = asset.data.root_pos_w[:, 1]
+
+    return (asset_x < min_x) | (asset_x > max_x) | (asset_y < min_y) | (asset_y > max_y)
+
+
 # def time_out(
 #     env: ManagerBasedRLEnv,
 #     command_name: str = "target",

@@ -1,11 +1,3 @@
-# Copyright (c) 2025, Kousheek Chakraborty
-# All rights reserved.
-#
-# SPDX-License-Identifier: BSD-3-Clause
-#
-# This project uses the IsaacLab framework (https://github.com/isaac-sim/IsaacLab),
-# which is licensed under the BSD-3-Clause License.
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -275,7 +267,7 @@ class ControlActionCfg(ActionTermCfg):
     2100 * 6 * 4.2 = 47,780 RPM ~= 5541 rad/s."""
     max_thrust: float = omega_max**2 * thrust_coef * 4
     """Maximum collective thrust in Newtons."""
-    thrust_saturation: float = 1.0
+    thrust_saturation: float = 0.5
     """Saturation limit for collective thrust as a fraction of maximum thrust."""
     taus: list[float] = (0.0001, 0.0001, 0.0001, 0.0001)
     """Time constants for each motor."""

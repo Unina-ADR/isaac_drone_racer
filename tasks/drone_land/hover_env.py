@@ -9,6 +9,9 @@ import gymnasium as gym
 import torch
 
 import isaaclab.sim as sim_utils
+import isaaclab.envs.mdp as mdp
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.envs.mdp import SceneEntityCfg
 from isaaclab.assets import Articulation, ArticulationCfg
 from isaaclab.envs import DirectRLEnv, DirectRLEnvCfg
 from isaaclab.envs.ui import BaseEnvWindow
@@ -18,6 +21,7 @@ from isaaclab.sim import SimulationCfg
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import subtract_frame_transforms
+from isaaclab.utils.noise import NoiseModelCfg, GaussianNoiseCfg
 
 ##
 # Pre-defined configs
@@ -28,10 +32,10 @@ from dynamics import Allocation  # isort: skip
 from dynamics import Motor
 
 
-class LanderEnvWindow(BaseEnvWindow):
+class HoverEnvWindow(BaseEnvWindow):
     """Window manager for the Quadcopter environment."""
 
-    def __init__(self, env: LanderEnv, window_name: str = "IsaacLab"):
+    def __init__(self, env: HoverEnv, window_name: str = "IsaacLab"):
         """Initialize the window.
 
         Args:
@@ -47,9 +51,37 @@ class LanderEnvWindow(BaseEnvWindow):
                     # add command manager visualization
                     self._create_debug_vis_ui_element("targets", self.env)
 
+@configclass
+class EventCfg:
+    randomize_mass = EventTerm(
+        func=mdp.randomize_rigid_body_mass,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("robot", body_names=["body"]),
+            "mass_distribution_params": (1.0, 1.30),  # uniform distribution,
+            "operation": "scale",
+            "distribution": "uniform",
+            "recompute_inertia": True,
+        },
+    )
+
+    # randomize_com = EventTerm(
+    #     func=mdp.randomize_rigid_body_com,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("robot", body_names=["body"]),
+    #         "x": (-0.03, 0.03),
+    #         "y": (-0.015, 0.015),
+    #         "z": (-0.02, 0.02),
+    #     },
+    # )
+
+
+
+
 
 @configclass
-class LanderEnvCfg(DirectRLEnvCfg):
+class HoverEnvCfg(DirectRLEnvCfg):
     # env
     episode_length_s = 20.0
     decimation = 4
@@ -58,7 +90,7 @@ class LanderEnvCfg(DirectRLEnvCfg):
     state_space = 0
     debug_vis = True
 
-    ui_window_class_type = LanderEnvWindow
+    ui_window_class_type = HoverEnvWindow
 
     # simulation
     sim: SimulationCfg = SimulationCfg(
@@ -93,6 +125,14 @@ class LanderEnvCfg(DirectRLEnvCfg):
     robot: ArticulationCfg = A2R_DRONE.replace(prim_path="/World/envs/env_.*/Robot")
     #thrust_to_weight = 1.9
     #moment_scale = 0.01
+    events: EventCfg = EventCfg()
+
+    # observation_noise_model: GaussianNoiseCfg = GaussianNoiseCfg(
+    #     mean=0.0,
+    #     std=0.01,
+    #     operation="add",
+    # )
+
 
     # reward scales
     lin_vel_reward_scale = -0.05
@@ -118,23 +158,23 @@ class LanderEnvCfg(DirectRLEnvCfg):
     """Maximum rate of change of angular velocities for each motor in rad/s^2."""
     min_rate: list[float] = (-50000.0, -50000.0, -50000.0, -50000.0)
     """Minimum rate of change of angular velocities for each motor in rad/s^2."""
-    use_motor_model: bool = True
-    """Flag to determine if motor delay is bypassed."""
-    thrust_saturation: float = 1.0
+    thrust_saturation: float = 0.4
     # max_thrust = 9.81 * 0.468 * thrust_to_weight
     # """Maximum collective thrust in Newtons."""
     # moment_scale = max_thrust * moment_scale
     # """Scaling factor for moments in Nm."""
 
 
-class LanderEnv(DirectRLEnv):
-    cfg: LanderEnvCfg
 
-    def __init__(self, cfg: LanderEnvCfg, render_mode: str | None = None, **kwargs):
+class HoverEnv(DirectRLEnv):
+    cfg: HoverEnvCfg
+
+    def __init__(self, cfg: HoverEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
         # Total thrust and moment applied to the base of the quadcopter
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
+        self._last_actions = torch.zeros_like(self._actions)
         self._thrust = torch.zeros(self.num_envs, 1, 3, device=self.device)
         self._moment = torch.zeros(self.num_envs, 1, 3, device=self.device)
         # Goal position
@@ -205,6 +245,7 @@ class LanderEnv(DirectRLEnv):
         self._thrust[:, 0, 2] = self._processed_actions[:, 0]
         self._moment[:, 0, :] = self._processed_actions[:, 1:]
         self._robot.set_external_force_and_torque(self._thrust, self._moment, body_ids=self._body_id)
+        self._last_actions[:] = self._actions
 
     def _get_observations(self) -> dict:
         desired_pos_b, _ = subtract_frame_transforms(
@@ -212,18 +253,30 @@ class LanderEnv(DirectRLEnv):
         )
         obs = torch.cat(
             [
-                self._robot.data.root_lin_vel_b,
+                self._robot.data.root_lin_vel_w,
                 self._robot.data.root_ang_vel_b,
                 self._robot.data.projected_gravity_b,
                 desired_pos_b,
             ],
             dim=-1,
         )
+        # obs = torch.cat(
+        #     [
+        #         self._robot.data.root_pos_w,
+        #         self._robot.data.root_quat_w,
+        #         self._robot.data.root_lin_vel_w,
+        #         self._robot.data.root_ang_vel_b,
+        #         self._last_actions,
+        #         desired_pos_b,
+        #     ],
+        #     dim=-1,
+        # )
+
         observations = {"policy": obs}
         return observations
 
     def _get_rewards(self) -> torch.Tensor:
-        lin_vel = torch.sum(torch.square(self._robot.data.root_lin_vel_b), dim=1)
+        lin_vel = torch.sum(torch.square(self._robot.data.root_lin_vel_w), dim=1)
         ang_vel = torch.sum(torch.square(self._robot.data.root_ang_vel_b), dim=1)
         distance_to_goal = torch.linalg.norm(self._desired_pos_w - self._robot.data.root_pos_w, dim=1)
         distance_to_goal_mapped = 1 - torch.tanh(distance_to_goal / 0.8)
@@ -240,7 +293,7 @@ class LanderEnv(DirectRLEnv):
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        died = torch.logical_or(self._robot.data.root_pos_w[:, 2] < 0.1, self._robot.data.root_pos_w[:, 2] > 2.0)
+        died = torch.logical_or(self._robot.data.root_pos_w[:, 2] < 0.0, self._robot.data.root_pos_w[:, 2] > 2.0)
         return died, time_out
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
