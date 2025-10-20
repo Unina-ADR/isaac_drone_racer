@@ -20,6 +20,14 @@ def root_lin_vel_w(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEnti
     #return scaled_vel.clamp_(min=-1.0, max=1.0)  # Clamp to avoid NaN issues in training
     return lin_vel
 
+def root_lin_vel_b(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Asset root linear velocity in the body frame."""
+    asset: RigidObject = env.scene[asset_cfg.name]
+    lin_vel = asset.data.root_lin_vel_b
+    log(env, ["vx", "vy", "vz"], lin_vel)
+    #return lin_vel.clamp_(min=-1.0, max=1.0)  # Clamp to avoid NaN issues in training
+    return lin_vel
+
 def root_ang_vel_b(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Asset root angular velocity in the body frame."""
     asset: RigidObject = env.scene[asset_cfg.name]

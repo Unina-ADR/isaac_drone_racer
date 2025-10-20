@@ -37,9 +37,16 @@ class OriginGoalCommand(CommandTerm):
     # Required abstract method implementations
     # ------------------------------------------------------------------
     def _resample_command(self, env_ids: torch.Tensor):
-        # Nothing to randomize; keep origin. Ensure buffer shape remains valid.
+        asset = self._env.scene[self.cfg.asset_name]
+        spawn_pos = asset.data.root_pos_w  # (N,3)
+
         if env_ids.numel() > 0:
-            self._goal[env_ids] = 0.0
+            # versione orientata
+            quat = asset.data.root_quat_w
+            forward_dir = math_utils.quat_rotate(quat, torch.tensor([1.0, 0.0, 0.0], device=self._device))
+            self._goal[env_ids] = spawn_pos[env_ids] + forward_dir * 1.0
+
+
 
     def _update_command(self):
         # Command does not change each step (static origin)

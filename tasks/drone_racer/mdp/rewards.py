@@ -122,15 +122,18 @@ def lookat_next_gate(
     # The camera is rotated 50 degrees around the y-axis
     
     cam_roll = torch.tensor([0.0], device=asset.device).expand(env.num_envs, 1)
-    cam_pitch = torch.tensor([-0.87266], device=asset.device).expand(env.num_envs, 1)
+    cam_pitch = torch.tensor([-0.523598776], device=asset.device).expand(env.num_envs, 1)
     cam_yaw = torch.tensor([0.0], device=asset.device).expand(env.num_envs, 1)
     cam_quat = math_utils.quat_from_euler_xyz(cam_roll, cam_pitch, cam_yaw)
-    drone_x_axis = math_utils.quat_apply(drone_att, x_axis)
-    drone_x_axis = math_utils.normalize(drone_x_axis)
-    cam_x_axis = math_utils.quat_apply(cam_quat, drone_x_axis)
-    cam_x_axis = math_utils.normalize(cam_x_axis)
-    
 
+    drone_x_axis = math_utils.quat_apply(drone_att, x_axis)
+    cam_x_axis = math_utils.quat_apply(cam_quat, drone_x_axis)
+    
+    cam_x_axis[:,2] = 0.0
+    drone_x_axis[:,2] = 0.0
+
+    cam_x_axis = math_utils.normalize(cam_x_axis)
+    drone_x_axis = math_utils.normalize(drone_x_axis)
     #dot = (drone_x_axis * vec_to_gate).sum(dim=1).clamp(-1.0, 1.0)
     dot = (cam_x_axis * vec_to_gate).sum(dim=1)
     cosine= dot/(torch.norm(cam_x_axis, dim=1)* torch.norm(vec_to_gate, dim=1))
@@ -141,6 +144,7 @@ def lookat_next_gate(
     expangle = torch.pow(angle, 4)
     #expangle = torch.pow(angle, 2)
     return torch.exp(expangle * std)
+
 
 
 def ang_vel_l2(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
@@ -168,6 +172,35 @@ def yaw_vel(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("
 
 
 #     return torch.abs(ang_vel_yaw)
+
+def roll_penalty(env: ManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    command_name: str | None = None, 
+    max_roll_rate: float = 6.0) -> torch.Tensor:
+    
+    asset: RigidObject = env.scene[asset_cfg.name]
+    next_gate_pos = env.command_manager.get_term(command_name).command[:, :3]
+    next_gate_quat = env.command_manager.get_term(command_name).command[:, 3:7]
+    drone_ang_vel = asset.data.root_ang_vel_b
+    drone_pos = asset.data.root_pos_w
+    roll_rate = drone_ang_vel[:, 0]
+    roll_penalty = torch.abs(roll_rate)
+
+    gate_to_drone = drone_pos - next_gate_pos
+
+    gate_quat_inverse = math_utils.quat_inv(next_gate_quat)
+    drone_pos_gate_frame= math_utils.quat_apply(gate_quat_inverse, gate_to_drone)
+
+    if (drone_pos_gate_frame[:,0]<0.0 and drone_pos_gate_frame[:, 0]> -1.5 and roll_penalty>max_roll_rate):
+        return roll_penalty*torch.ones_like([roll_rate])
+    else:
+        return torch.zeros_like([roll_rate])
+    
+
+    
+
+    
+
 
 
 def action_reward(
@@ -230,17 +263,26 @@ def lin_vel_to_next_gate(
     command_name: str | None = None,
 ) -> torch.Tensor:
     """Reward for the linear velocity of the drone towards the next gate."""
-    # extract the used quantities (to enable type-hinting)
+
     asset: RigidObject = env.scene[asset_cfg.name]
-    
-    # get drone velocity
-    drone_linear_vel = asset.data.root_lin_vel_b
-    vec_to_next_gate = env.command_manager.get_term(command_name).point_to_next_gate
+    next_gate_pos = env.command_manager.get_term(command_name).command[:, :3]
+    next_gate_quat = env.command_manager.get_term(command_name).command[:, 3:7]
+    drone_ang_vel = asset.data.root_ang_vel_b
+    drone_pos = asset.data.root_pos_w
+    roll_rate = drone_ang_vel[:, 0]
+    roll_penalty = torch.abs(roll_rate)
 
-    # Compute the dot product between the drone's linear velocity and the vector to the next gate
-    dot_product = torch.sum(drone_linear_vel * vec_to_next_gate, dim=1)
+    gate_to_drone = drone_pos - next_gate_pos
 
-    return dot_product
+    gate_quat_inverse = math_utils.quat_inv(next_gate_quat)
+    drone_pos_gate_frame= math_utils.quat_apply(gate_quat_inverse, gate_to_drone)
+    drone_x = drone_pos_gate_frame[:, 0]
+
+    drone_mask1 = drone_x < 0.0
+    drone_mask2 = drone_x > -1.5 
+    drone_mask3 = roll_penalty > 6.0
+    drone_mask = drone_mask1 & drone_mask2 & drone_mask3
+    return -1.0*drone_mask.float()
 
 def time_reward(
     env: ManagerBasedRLEnv,
@@ -300,7 +342,20 @@ def guidance_reward(
     )
     return guidance_reward
 
-    
+def lap_completed(
+    env: ManagerBasedRLEnv,
+    command_name: str | None = None,
+) -> torch.Tensor:
+    """Reward triggered when a full lap (all gates) is completed."""
+    command_term = env.command_manager.get_term(command_name)
+    # Verifica se il gate index è tornato a zero dopo aver completato un giro
+    gate_passed = command_term.gate_passed
+    next_gate_idx = command_term.next_gate_idx
+
+    # Un giro è completato se il drone passa un gate e torna all'indice 0
+    lap_done = gate_passed & (next_gate_idx == 0)
+    return lap_done.float()
+
 
 @torch.jit.script
 def compute_guidance_reward(

@@ -45,7 +45,7 @@ class LanderSceneCfg(InteractiveSceneCfg):
     imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body", debug_vis=False)
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=( 0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(0.0, 0.0, -0.86603, 0.5)),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(),
         width=640,
@@ -70,16 +70,16 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0}, 
-                           noise=GaussianNoiseCfg(std=0.05, mean = 0.0), scale = 1/5.0
+                           noise=GaussianNoiseCfg(std=0.05, mean = 0.0), scale = 1/30.0
         )
         attitude = ObsTerm(func=mdp.root_quat_w,
                            noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
         )
-        lin_vel = ObsTerm(func=mdp.root_lin_vel_w, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/20.0
+        lin_vel = ObsTerm(func=mdp.root_lin_vel_b, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/5.0
         )
         ang_vel = ObsTerm(func=mdp.root_ang_vel_b, noise=GaussianNoiseCfg(std=0.01, mean = 0.0), scale = 1/11.69
         )
-        
+
         last_action = ObsTerm(func=mdp.action_obs)
 
         goal_pos_body = ObsTerm(func=mdp.goal_pos_in_body_frame, scale = 1/30.0)
@@ -102,7 +102,7 @@ class RewardsCfg:
     action_reward = RewTerm(func=mdp.action_reward, weight=1, params={"weight_omega": -0.0002, "weight_rate": -0.0001})
     rew_penalize_upward = RewTerm(func=mdp.r_penalize_upward, weight=-3.0, params={"use_squared": True})
     #r_yaw_stability = RewTerm(func=mdp.r_yaw_stability, weight=-0.5)
-    r_yaw_stability = RewTerm(func=mdp.r_yaw_stability_if_horizontal, weight=-0.5)
+    r_yaw_stability = RewTerm(func=mdp.r_yaw_stability_if_horizontal, weight=-1.0)
     #r_success_landing = RewTerm(func=mdp.r_success_bonus, weight=50.0)
     
 
@@ -123,7 +123,7 @@ class EventsCfg:
                                 "velocity_range":{
                                     "x": (-5.0,5.0),
                                     "y": (-5.0, 5.0),
-                                    "z": (-2.0, 2.0),
+                                    "z": (-1.0, 1.0),
                                     "roll": (-8.0, 8.0),
                                     "pitch": (-7.0, 7.0),
                                     "yaw": (-7.0, 7.0),
@@ -137,7 +137,7 @@ class EventsCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", body_names=["body"]),
-            "mass_distribution_params": (1.0, 1.35),  # uniform distribution,
+            "mass_distribution_params": (1.15, 1.35),  # uniform distribution,
             "operation": "scale",
             "distribution": "uniform",
             "recompute_inertia": True,
@@ -212,9 +212,9 @@ class LanderEnvCfgPLAY(LanderEnvCfg):
         roll= torch.tensor(deg2rad(-15.0))
         pitch = torch.tensor(deg2rad(25.0))
         # Example: spawn at fixed pos/rot instead of random
-        self.scene.robot.init_state.pos = (2.0, 4.0, 3.0)   # 5m high
+        self.scene.robot.init_state.pos = (2.0, 4.0, 1.0)   # 5m high
         self.scene.robot.init_state.rot = math_utils.quat_from_euler_xyz(roll,pitch,yaw)# (0.0, 0.0, 0.0, 1.0)  # no rotation
-        self.scene.robot.init_state.lin_vel = (1.0, -1.0, 0.2)
+        self.scene.robot.init_state.lin_vel = (3.0, -2.0, 0.2)
         self.scene.robot.init_state.ang_vel = (0.0, 0.0, 0.0)
         
         # disable randomization in play mode

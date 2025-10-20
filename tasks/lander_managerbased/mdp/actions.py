@@ -267,7 +267,7 @@ class ControlActionCfg(ActionTermCfg):
     2100 * 6 * 4.2 = 47,780 RPM ~= 5541 rad/s."""
     max_thrust: float = omega_max**2 * thrust_coef * 4
     """Maximum collective thrust in Newtons."""
-    thrust_saturation: float = 0.5
+    thrust_saturation: float = 1.0
     """Saturation limit for collective thrust as a fraction of maximum thrust."""
     taus: list[float] = (0.0001, 0.0001, 0.0001, 0.0001)
     """Time constants for each motor."""

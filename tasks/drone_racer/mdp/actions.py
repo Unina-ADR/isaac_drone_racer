@@ -123,15 +123,16 @@ class ControlAction(ActionTerm):
         self._last_action.copy_(self._processed_actions)
         self._raw_actions_obs.copy_(self._raw_actions)
         self._raw_actions[:] = actions #.clamp_(-1.0, 1.0)
-        clamped = self._raw_actions.clamp_(-1.0, 1.0)
-
+        #clamped = self._raw_actions.clamp_(-1.0, 1.0)
+        clamped = self._raw_actions.clamp_(0, 1.0)
         #NO BETAFLIGHT PROCESSING
-        mapped = (clamped + 1.0) / 2.0
-        omega_ref = self.cfg.omega_max * mapped
-        
+        #mapped = (clamped + 1.0) / 2.0
+        #omega_ref = self.cfg.omega_max * mapped
+        omega_ref = self.cfg.omega_max * self.cfg.omega_sat * clamped
+
         omega_real = self._motor.compute(omega_ref)
         self._processed_actions = self._allocation.compute(omega_real)
-        self._processed_actions[:,0] = self._processed_actions[:,0].clamp(0.0, self.cfg.max_thrust * self.cfg.thrust_saturation)
+        #self._processed_actions[:,0] = self._processed_actions[:,0]
 
 
         # # #BETAFLIGHT PROCESSING
@@ -150,7 +151,7 @@ class ControlAction(ActionTerm):
         # self._processed_actions= self._allocation.compute(omega_real)  # (num_envs,4): [T, Mx, My, Mz] in FRD
 
         #log(self._env, ["wx_des", "wy_des", "wz_des"], ang_vel_des)
-        #log(self._env, ["A", "E", "T", "R"], self._raw_actions)
+        log(self._env, ["act1", "act2", "act3", "act4"], self._raw_actions)
         log(self._env, ["thrust", "moment_x", "moment_y", "moment_z"], self._processed_actions)
         log(self._env, ["w1", "w2", "w3", "w4"], omega_real)
 
@@ -247,6 +248,23 @@ class ControlAction(ActionTerm):
         )
 
 
+# def compute_max_omega(omega_max, saturation):
+#     r"""Compute the saturated thrust given the scaled angular velocities.
+
+#     Args:
+#         omega_scaled (torch.Tensor): Scaled angular velocities of shape (num_envs, 4).
+#         thrust_coef (float): Thrust coefficient.
+#         saturation (float): Saturation limit as a fraction of maximum thrust.
+
+#     Returns:
+#         torch.Tensor: Saturated thrust of shape (num_envs, 1).
+#     """
+#     max_omega = (omega_scaled*saturation)
+#     return 
+
+
+
+
 @configclass
 class ControlActionCfg(ActionTermCfg):
     """
@@ -261,7 +279,8 @@ class ControlActionCfg(ActionTermCfg):
     arm_length: float = 0.1825
     """Length of the arms of the drone in meters."""
     #drag_coef: float = 8.97e-9 #CALCOLATO COL SENSORE ATI
-    drag_coef: float = 7.6909678e-9
+    #drag_coef: float = 7.6909678e-9 #originale
+    drag_coef: float = 2.596e-8
     """Drag torque coefficient."""
     #thrust_coef: float = 6.888e-7 #CALCOLATO COL SENSORE ATI
     thrust_coef: float = 1.52117969e-5
@@ -273,9 +292,9 @@ class ControlActionCfg(ActionTermCfg):
     """Maximum angular velocity of the drone motors in rad/s.
     Calculated with 2100KV motor, with 6S LiPo battery with 3.8V per cell.
     2100 * 6 * 4.2 = 47,780 RPM ~= 5541 rad/s."""
-    max_thrust: float = omega_max**2 * thrust_coef * 4
+    #max_thrust: float = omega_max**2 * thrust_coef * 4
     """Maximum collective thrust in Newtons."""
-    thrust_saturation: float = 1.0
+    omega_sat: float = 1.0
     """Saturation limit for collective thrust as a fraction of maximum thrust."""
     taus: list[float] = (0.0001, 0.0001, 0.0001, 0.0001)
     """Time constants for each motor."""

@@ -40,7 +40,7 @@ class Allocation:
                 [1.0,                1.0,        1.0,         1.0],
                 [-0.1343,       -0.10474,     0.1343,     0.10474],
                 [-0.122,         0.14825,     -0.122,     0.14825],
-                [drag_coeff, -drag_coeff, -drag_coeff, drag_coeff],
+                [drag_coeff/thrust_coeff, -drag_coeff/thrust_coeff, -drag_coeff/thrust_coeff, drag_coeff/thrust_coeff],
             ],
             dtype=dtype,
             device=device,
