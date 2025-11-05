@@ -42,18 +42,18 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
     # track
     track: RigidObjectCollectionCfg = generate_track(
         track_config = {
-            "1":  {"pos": (12.5, 2.0, 1.45), "yaw":         deg2rad(180.0)},
-            "2":  {"pos": (6.5,  6.0, 1.45), "yaw":  deg2rad(180.0 - 45.0)},
-            "3":  {"pos": (5.5, 14.0, 1.45), "yaw":         deg2rad(150.0)},
-            "4":  {"pos": (2.5, 24.5, 1.45), "yaw":          deg2rad(90.0)},
-            # "5":  {"pos": (7.5, 30.0, 1.45), "yaw":         deg2rad(-10.0)},
-            # "6":  {"pos": (12.2,22.0, 1.45), "yaw":                    0.0},
-            # "7":  {"pos": (17.5, 30, 4.15),  "yaw":          deg2rad(80.0)},
-            # "8":  {"pos": (17.5, 30, 1.45),  "yaw":         deg2rad(260.0)}, #7, 8 splits
-            # "9":  {"pos": (18.5, 22.0, 1.45),"yaw":         deg2rad(-80.0)},
-            # "10": {"pos": (20.5, 14.0, 1.45),"yaw":        deg2rad(-100.0)},
-            # "11": {"pos": (18.5, 6.0, 4.15), "yaw":    deg2rad(180 + 45.0)},
-            # "12": {"pos": (18.5, 6.0, 1.45), "yaw":    deg2rad(180 + 45.0)}, #11, 12 corkscrew
+            "1":  {"pos": (12.5,  2.0, 1.45), "yaw":         deg2rad(180.0)},
+            "2":  {"pos": (6.5,   6.0, 1.45), "yaw":  deg2rad(180.0 - 45.0)},
+            "3":  {"pos": (5.5,  14.0, 1.45), "yaw":         deg2rad(150.0)},
+            "4":  {"pos": (2.5,  24.5, 1.45), "yaw":          deg2rad(90.0)},
+            "5":  {"pos": (7.5,  30.0, 1.45), "yaw":         deg2rad(-10.0)},
+            "6":  {"pos": (12.2, 22.0, 1.45), "yaw":                    0.0},
+            "7":  {"pos": (17.5,   30, 4.15), "yaw":          deg2rad(80.0)},
+            "8":  {"pos": (17.5,   30, 1.45), "yaw":         deg2rad(260.0)},#7, 8 splits
+            "9":  {"pos": (18.5, 22.0, 1.45), "yaw":         deg2rad(-80.0)},
+            "10": {"pos": (20.5, 14.0, 1.45), "yaw":        deg2rad(-100.0)},
+            "11": {"pos": (18.5, 6.0, 4.15),  "yaw":    deg2rad(180 + 45.0)},
+            "12": {"pos": (18.5, 6.0, 1.45),  "yaw":    deg2rad(180 + 45.0)},#11, 12 ladder
         }
     )
 
@@ -65,7 +65,7 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
     imu = ImuCfg(prim_path="{ENV_REGEX_NS}/Robot/body", debug_vis=False)
     tiled_camera: TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/Robot/body/camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(0.0, 0.0, -0.86603, 0.5)),  # rot=(0.0, 0.0, 0.86603, 0.5)) da provare
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.0654), rot=(0.64086, -0.29884, 0.29884, -0.64086), convention="ros"),#rot=(0.0, 0.0, -0.86603, 0.5)),  # rot=(0.0, 0.0, 0.86603, 0.5)) da provare
 
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(),
@@ -84,7 +84,7 @@ class DroneRacerSceneCfg(InteractiveSceneCfg):
 class ActionsCfg:
     """Action specifications for the MDP."""
 
-    control_action: mdp.ControlActionCfg = mdp.ControlActionCfg(use_motor_model=False, debug_vis = True)
+    control_action: mdp.ControlActionCfg = mdp.ControlActionCfg(use_motor_model=True, debug_vis = True)
 
 
 
@@ -97,16 +97,19 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         position = ObsTerm(func=mdp.root_pos_w, params={"pos_max": 30.0}, 
-                           #noise=GaussianNoiseCfg(std=0.02, mean = 0.0), scale = 1/30.0
+                           #noise=GaussianNoiseCfg(std=0.02, mean = 0.0), 
+                           scale = 1/30.0
         )
         attitude = ObsTerm(func=mdp.root_quat_w,
                            #noise=GaussianNoiseCfg(std=0.01, mean = 0.0)
         )
         lin_vel = ObsTerm(func=mdp.root_lin_vel_b, 
-                          #noise=GaussianNoiseCfg(std=0.02, mean = 0.0), scale = 1/5.0
+                          #noise=GaussianNoiseCfg(std=0.02, mean = 0.0), 
+                          scale = 1/30.0
         )
-        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 11.69}, 
-                          #noise=GaussianNoiseCfg(std=0.005, mean = 0.0), scale = 1/6.28
+        ang_vel = ObsTerm(func=mdp.root_ang_vel_b, params={"ang_vel_max": 12.0}, 
+                          #noise=GaussianNoiseCfg(std=0.005, mean = 0.0), 
+                          scale = 1/12.0
         )
         target_pos_b = ObsTerm(func=mdp.target_pos_b, params={"command_name": "target", "pos_max": 25.0})
         actions = ObsTerm(func=mdp.action_obs)
@@ -215,7 +218,7 @@ class RewardsCfg:
     
     gate_passed = RewTerm(func=mdp.gate_passed, weight=400.0, params={"command_name": "target"})
     
-    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=1.50, params={"command_name": "target", "std": -10.0})
+    lookat_next = RewTerm(func=mdp.lookat_next_gate, weight=1.0, params={"command_name": "target", "std": -10.0})
     
     action_reward = RewTerm(func=mdp.action_reward, weight=1.0, params={"weight_omega": -0.002, "weight_rate": -0.001})
     
@@ -224,10 +227,10 @@ class RewardsCfg:
     linear_vel_side = RewTerm(func=mdp.linear_vel_side, weight=-0.01, params={})
 
     #finished_4_gates = RewTerm(func=mdp.finished_4_gates, weight=200.0, params={"command_name": "target"})
-    roll_pen = RewTerm(func=mdp.lin_vel_to_next_gate, weight=-0.05, params={"command_name": "target"})
+    #roll_pen = RewTerm(func=mdp.lin_vel_to_next_gate, weight=-0.05, params={"command_name": "target"})
 
     guidance_reward = RewTerm(
-       func=mdp.guidance_reward, weight=-1.0, params={"command_name": "target"}
+        func=mdp.guidance_reward, weight=-1.0, params={"command_name": "target"}
     )
     #lap_completed = RewTerm(func=mdp.lap_completed, params={"command_name": "target"})
 
@@ -245,7 +248,7 @@ class TerminationsCfg:
     collision = DoneTerm(
         func=mdp.illegal_contact, params={"sensor_cfg": SceneEntityCfg("collision_sensor"), "threshold": 0.0001}
     )
-    dynamic_limits_exceeded = DoneTerm(func=mdp.dynamic_limits_exceeded, params={"linvel_max": 5.0, "angvel_max": 6.28})
+    dynamic_limits_exceeded = DoneTerm(func=mdp.dynamic_limits_exceeded, params={"linvel_max": 30.0, "angvel_max": 12.0})
     walls = DoneTerm(func=mdp.walls, params={"min_x": 0.0, "min_y": 0.0, "max_x": 25.0, "max_y": 35.0})
 
     # out_of_bounds = DoneTerm(
